@@ -6,7 +6,7 @@ Get up and running in 5 minutes.
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 
 # Run your first command
 nc --help

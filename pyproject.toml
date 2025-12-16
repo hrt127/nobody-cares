@@ -32,7 +32,7 @@ nc = "src.cli.main:main"
 nobody-cares = "src.cli.main:main"
 
 [tool.setuptools]
-packages = ["src", "src.core", "src.cli", "src.alpha", "src.importers", "src.improvements", "src.outputs"]
+packages = ["src", "src.core", "src.cli", "src.alpha", "src.importers", "src.improvements", "src.outputs", "src.insights", "src.review", "src.examples"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
