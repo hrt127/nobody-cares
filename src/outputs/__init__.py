@@ -4,10 +4,12 @@ from .twitter import TwitterThreadGenerator
 from .linkedin import LinkedInPostGenerator
 from .video_script import VideoScriptGenerator
 from .pdf import PDFReportGenerator
+from .content import ContentGenerator
 
 __all__ = [
     'TwitterThreadGenerator',
     'LinkedInPostGenerator',
     'VideoScriptGenerator',
-    'PDFReportGenerator'
+    'PDFReportGenerator',
+    'ContentGenerator'
 ]

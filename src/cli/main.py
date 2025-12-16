@@ -8,13 +8,17 @@ from typing import Optional
 from ..core.storage import Storage
 from ..core.models import Entry, EntryType, Project
 from ..core.utils import get_week_start, get_week_end
+from ..core.currency import format_cost, get_last_used_currency, format_gas_fee
 from ..alpha import AlphaBriefGenerator, BriefFormatter
-from ..improvements import get_template
+from ..improvements import get_template as get_improvement_template
 from ..importers import TradingPerformanceImporter
 from ..outputs import (
     TwitterThreadGenerator, LinkedInPostGenerator,
     VideoScriptGenerator, PDFReportGenerator
 )
+from ..outputs.content import ContentGenerator
+from ..review import get_review_prompts, suggest_iterations
+from ..examples import EXAMPLES, TEMPLATES, get_example, get_template, get_contrast
 
 
 # Global storage instance
@@ -92,11 +96,32 @@ def log(entry_type: str, notes: tuple, tags: str, source: str):
 @main.command('risk')
 @click.argument('risk_type', type=click.Choice(['nft', 'sports_bet', 'prediction_market', 'trade', 'crypto', 'other']))
 @click.option('--cost', '-c', type=float, required=True, help='Entry cost / amount at risk')
+@click.option('--currency', default=None, help='Currency (defaults to last used, or USD)')
+@click.option('--gas-fee', type=float, help='Gas fee (separate tracking)')
+@click.option('--gas-currency', help='Gas fee currency (if different from entry currency)')
 @click.option('--expected-value', '-ev', type=float, help='Initial expected upside/outcome value')
 @click.option('--timeframe', '-t', help='Expected timeframe (e.g., "2 weeks", "end of game")')
 @click.option('--odds', '-o', type=float, help='Current odds or entry price')
 @click.option('--fair-value', '-fv', type=float, help='Your assessment of fair value')
-@click.option('--confidence', type=float, help='Confidence level (0.0-1.0) in expected value')
+@click.option('--confidence', type=click.FloatRange(0.0, 1.0), help='Confidence level (0.0-1.0)')
+@click.option('--my-probability', type=click.FloatRange(0.0, 1.0), help='YOUR probability assessment (0.0-1.0)')
+@click.option('--market-probability', type=click.FloatRange(0.0, 1.0), help='Market implied probability (0.0-1.0)')
+@click.option('--how-i-calculated', help='How you arrived at your probability (free-form)')
+@click.option('--what-market-missing', help='What you see that market doesn\'t (free-form)')
+@click.option('--gut-feeling', help='Gut feeling (strong/weak/uncertain, or your words)')
+@click.option('--trust-level', type=click.FloatRange(0.0, 1.0), help='Trust level (0.0-1.0)')
+@click.option('--what-i-see', help='What you\'re noticing that others might miss (free-form)')
+@click.option('--why-i-trust-this', help='Why you trust this - past experience, pattern match (free-form)')
+@click.option('--red-flags', help='What makes you nervous (free-form)')
+@click.option('--related-trades', help='Comma-separated entry IDs of similar trades')
+@click.option('--related-alpha', help='Comma-separated entry IDs of related alpha signals')
+@click.option('--related-code', help='Comma-separated entry IDs of related code/projects')
+@click.option('--pattern-match', help='Similar to X situation (free-form)')
+@click.option('--domain-knowledge', help='What you\'re applying from other domains (free-form)')
+@click.option('--cash-out-available/--no-cash-out', default=None, help='Whether platform offers cash-out')
+@click.option('--sportsbook', help='Sportsbook/platform name')
+@click.option('--game-id', help='External game identifier (ESPN, NBA Stats, etc.)')
+@click.option('--bet-type', help='Bet type (moneyline, spread, total, prop)')
 @click.option('--opportunity-cost', '-oc', type=float, help='Perceived opportunity cost')
 @click.option('--opportunity-cost-real', '-ocr', type=float, help='Real/actual opportunity cost')
 @click.option('--opportunity-cost-notes', help='What opportunities are being passed up')
@@ -110,27 +135,51 @@ def log(entry_type: str, notes: tuple, tags: str, source: str):
 @click.option('--correlated', help='Comma-separated list of correlated risk IDs or descriptions')
 @click.option('--edge', type=click.Choice(['public', 'private', 'research', 'insider']), help='Information edge type')
 @click.option('--time-invested', type=float, help='Time invested researching/monitoring (hours)')
-@click.option('--currency', default='USD', help='Currency (default: USD)')
 @click.argument('notes', nargs=-1)
-def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timeframe: Optional[str],
+def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Optional[float],
+             gas_currency: Optional[str], expected_value: Optional[float], timeframe: Optional[str],
              odds: Optional[float], fair_value: Optional[float], confidence: Optional[float],
-             opportunity_cost: Optional[float], opportunity_cost_real: Optional[float],
+             my_probability: Optional[float], market_probability: Optional[float],
+             how_i_calculated: Optional[str], what_market_missing: Optional[str],
+             gut_feeling: Optional[str], trust_level: Optional[float], what_i_see: Optional[str],
+             why_i_trust_this: Optional[str], red_flags: Optional[str],
+             related_trades: Optional[str], related_alpha: Optional[str], related_code: Optional[str],
+             pattern_match: Optional[str], domain_knowledge: Optional[str],
+             cash_out_available: Optional[bool], sportsbook: Optional[str], game_id: Optional[str],
+             bet_type: Optional[str], opportunity_cost: Optional[float], opportunity_cost_real: Optional[float],
              opportunity_cost_notes: Optional[str], max_loss: Optional[float], max_gain: Optional[float],
              risk_factors: Optional[str], exit_strategy: Optional[str], liquidity: Optional[str],
              time_to_exit: Optional[str], allocation: Optional[float], correlated: Optional[str],
-             edge: Optional[str], time_invested: Optional[float], currency: str, notes: tuple):
+             edge: Optional[str], time_invested: Optional[float], notes: tuple):
     """Log a risk-taking activity with comprehensive structured data
     
     Examples:
         nc risk nft --cost 6.3 --expected-value 15 --timeframe "4 weeks" --opportunity-cost 5 "Cool Punks #1234"
-        nc risk sports_bet --cost 100 --odds 3.21 --fair-value 2.0 --risk-factors "no_cash_out" "Game X vs Y"
-        nc risk prediction_market --cost 50 --expected-value 150 --confidence 0.75 --max-loss 50 "Event outcome"
+        nc risk sports_bet --cost 100 --odds 3.21 --my-probability 0.45 --what-i-see "Market slow" "Game X vs Y"
+        nc risk sports_bet --cost 0.1 --currency ETH --gas-fee 0.001 "ETH bet"
     """
     storage = get_storage()
     
+    # Smart defaults
+    if not currency:
+        currency = get_last_used_currency(storage)
+    
+    if gas_fee and not gas_currency:
+        gas_currency = currency
+    
     notes_text = ' '.join(notes) if notes else ""
     
-    # Parse risk factors and correlated risks
+    # Validate cost
+    if cost <= 0:
+        click.echo("Error: Cost must be greater than 0", err=True)
+        return
+    
+    # Calculate edge if both probabilities provided
+    edge_pct = None
+    if my_probability is not None and market_probability is not None:
+        edge_pct = (my_probability - market_probability) * 100
+    
+    # Parse lists
     risk_factors_list = []
     if risk_factors:
         risk_factors_list = [rf.strip() for rf in risk_factors.split(',')]
@@ -139,15 +188,49 @@ def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timef
     if correlated:
         correlated_list = [c.strip() for c in correlated.split(',')]
     
+    # Parse related entry IDs
+    related_trades_list = []
+    if related_trades:
+        related_trades_list = [int(t.strip()) for t in related_trades.split(',') if t.strip().isdigit()]
+    
+    related_alpha_list = []
+    if related_alpha:
+        related_alpha_list = [int(a.strip()) for a in related_alpha.split(',') if a.strip().isdigit()]
+    
+    related_code_list = []
+    if related_code:
+        related_code_list = [int(c.strip()) for c in related_code.split(',') if c.strip().isdigit()]
+    
     # Create risk entry metadata
     risk_entry_data = {
         'risk_type': risk_type,
         'entry_cost': cost,
         'currency': currency,
+        'gas_fee': gas_fee,
+        'gas_fee_currency': gas_currency,
         'initial_expected_value': expected_value,
         'current_expected_value': expected_value,
         'expected_timeframe': timeframe,
         'confidence_level': confidence,
+        'my_probability': my_probability,
+        'market_probability': market_probability,
+        'edge_pct': edge_pct,
+        'how_i_calculated': how_i_calculated,
+        'what_market_missing': what_market_missing,
+        'gut_feeling': gut_feeling,
+        'trust_level': trust_level,
+        'what_i_see': what_i_see,
+        'why_i_trust_this': why_i_trust_this,
+        'red_flags': red_flags,
+        'related_trades': related_trades_list,
+        'related_alpha': related_alpha_list,
+        'related_code': related_code_list,
+        'pattern_match': pattern_match,
+        'domain_knowledge_applied': domain_knowledge,
+        'cash_out_available': cash_out_available,
+        'sportsbook': sportsbook,
+        'game_id': game_id,
+        'bet_type': bet_type,
         'opportunity_cost_perceived': opportunity_cost,
         'opportunity_cost_real': opportunity_cost_real,
         'opportunity_cost_notes': opportunity_cost_notes,
@@ -196,9 +279,16 @@ def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timef
         })
     
     # Create main entry
+    total_cost = cost + (gas_fee if gas_fee and gas_currency == currency else 0)
+    cost_display = format_cost(total_cost, currency)
+    if gas_fee and gas_currency == currency:
+        cost_display += f" (entry: {format_cost(cost, currency)}, gas: {format_gas_fee(gas_fee, gas_currency)})"
+    elif gas_fee:
+        cost_display += f" (entry: {format_cost(cost, currency)}, gas: {format_gas_fee(gas_fee, gas_currency)})"
+    
     entry = Entry(
         entry_type=EntryType.RISK,
-        notes=notes_text or f"{risk_type}: ${cost} {currency}",
+        notes=notes_text or f"{risk_type}: {cost_display}",
         tags=[risk_type, "risk"],
         source="manual",
         timestamp=datetime.now(),
@@ -209,28 +299,46 @@ def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timef
     
     # Show comprehensive stats
     click.echo(f"✓ Logged risk entry #{entry_id}: {risk_type}")
-    click.echo(f"  Cost: ${cost:.2f} {currency}")
+    click.echo(f"  Cost: {cost_display}")
     
     if expected_value:
-        potential_return = expected_value - cost
-        roi = (potential_return / cost) * 100 if cost > 0 else 0
+        potential_return = expected_value - total_cost
+        roi = (potential_return / total_cost) * 100 if total_cost > 0 else 0
         conf_str = f" ({confidence*100:.0f}% confidence)" if confidence else ""
-        click.echo(f"  Expected reward: ${expected_value:.2f} {currency} (potential +${potential_return:.2f}, {roi:.1f}% ROI){conf_str}")
+        click.echo(f"  Expected reward: {format_cost(expected_value, currency)} (potential +{format_cost(potential_return, currency)}, {roi:.1f}% ROI){conf_str}")
     
-    if odds and fair_value:
-        edge_pct = ((odds / fair_value) - 1) * 100 if fair_value > 0 else 0
-        click.echo(f"  Edge: {edge_pct:.1f}% (odds {odds} vs fair {fair_value})")
+    if edge_pct is not None:
+        click.echo(f"  Edge: {edge_pct:+.1f}% (your {my_probability*100:.0f}% vs market {market_probability*100:.0f}%)")
+    elif odds and fair_value:
+        edge_pct_calc = ((odds / fair_value) - 1) * 100 if fair_value > 0 else 0
+        click.echo(f"  Edge: {edge_pct_calc:.1f}% (odds {odds} vs fair {fair_value})")
+    
+    if my_probability is not None:
+        click.echo(f"  Your probability: {my_probability*100:.0f}%")
+        if what_i_see:
+            click.echo(f"  What you see: {what_i_see}")
+        if why_i_trust_this:
+            click.echo(f"  Why you trust this: {why_i_trust_this}")
+    
+    if gut_feeling:
+        click.echo(f"  Gut feeling: {gut_feeling}")
+    
+    if cash_out_available is not None:
+        cash_out_str = "Available" if cash_out_available else "Not available"
+        click.echo(f"  Cash-out: {cash_out_str}")
+        if not cash_out_available:
+            click.echo(f"  ⚠️  Warning: No cash-out option - you may get stuck")
     
     if opportunity_cost is not None or opportunity_cost_real is not None:
         oc_perceived = opportunity_cost if opportunity_cost is not None else 0
         oc_real = opportunity_cost_real if opportunity_cost_real is not None else (opportunity_cost if opportunity_cost is not None else 0)
         if opportunity_cost_real is not None:
-            click.echo(f"  Opportunity cost: ${oc_perceived:.2f} perceived → ${oc_real:.2f} real")
+            click.echo(f"  Opportunity cost: {format_cost(oc_perceived, currency)} perceived → {format_cost(oc_real, currency)} real")
         else:
-            click.echo(f"  Opportunity cost: ${oc_perceived:.2f} (perceived)")
+            click.echo(f"  Opportunity cost: {format_cost(oc_perceived, currency)} (perceived)")
     
     if max_loss and max_gain:
-        click.echo(f"  Risk range: -${max_loss:.2f} to +${max_gain:.2f}")
+        click.echo(f"  Risk range: -{format_cost(max_loss, currency)} to +{format_cost(max_gain, currency)}")
     
     if risk_factors_list:
         click.echo(f"  Risk factors: {', '.join(risk_factors_list)}")
@@ -240,21 +348,99 @@ def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timef
     
     if allocation:
         click.echo(f"  Portfolio allocation: {allocation:.1f}%")
+    
+    if related_trades_list or related_alpha_list or related_code_list:
+        connections = []
+        if related_trades_list:
+            connections.append(f"{len(related_trades_list)} trade(s)")
+        if related_alpha_list:
+            connections.append(f"{len(related_alpha_list)} alpha signal(s)")
+        if related_code_list:
+            connections.append(f"{len(related_code_list)} code entry/ies")
+        click.echo(f"  Connected to: {', '.join(connections)}")
+    
+    # Suggest next steps (optional)
+    click.echo("\n💡 Suggested next steps (optional):")
+    if not cash_out_available:
+        click.echo("  - Track live odds: nc sports track-odds <id>")
+    click.echo("  - Find similar: nc insights similar <id>")
+    click.echo("  - Or just continue - you're good!")
+
+
+@main.command('q')
+@click.argument('cost', type=float)
+@click.argument('notes', nargs=-1)
+@click.option('--currency', default=None, help='Currency (defaults to last used)')
+@click.option('--risk-type', default='sports_bet', help='Risk type (default: sports_bet)')
+def quick_risk(cost: float, notes: tuple, currency: Optional[str], risk_type: str):
+    """Ultra-quick risk entry - minimal fields for when overwhelmed
+    
+    Examples:
+        nc q 100 "houston bet"
+        nc q 0.1 --currency ETH "ETH bet"
+    """
+    storage = get_storage()
+    
+    # Validate cost
+    if cost <= 0:
+        click.echo("Error: Cost must be greater than 0", err=True)
+        return
+    
+    # Smart defaults
+    if not currency:
+        currency = get_last_used_currency(storage)
+    
+    notes_text = ' '.join(notes) if notes else "Quick entry"
+    
+    # Minimal entry - store in metadata
+    risk_entry_data = {
+        'risk_type': risk_type,
+        'entry_cost': cost,
+        'currency': currency,
+        'status': 'open',
+        'quick_mode': True  # Flag for later enhancement
+    }
+    
+    entry = Entry(
+        entry_type=EntryType.RISK,
+        notes=notes_text,
+        tags=[risk_type, "risk", "quick"],
+        source="manual",
+        timestamp=datetime.now(),
+        metadata=risk_entry_data
+    )
+    
+    entry_id = storage.add_entry(entry)
+    click.echo(f"✓ Quick entry #{entry_id}: {format_cost(cost, currency)} - {notes_text}")
+    click.echo(f"💡 Add details later: nc update-risk {entry_id} --odds <odds> --my-probability <prob> ...")
 
 
 @main.command('update-risk')
 @click.argument('entry_id', type=int)
 @click.option('--reward', '-r', type=float, help='New expected reward/value')
-@click.option('--confidence', type=float, help='Updated confidence level (0.0-1.0)')
+@click.option('--confidence', type=click.FloatRange(0.0, 1.0), help='Updated confidence level (0.0-1.0)')
 @click.option('--opportunity-cost', '-oc', type=float, help='Update perceived opportunity cost')
 @click.option('--opportunity-cost-real', '-ocr', type=float, help='Update real opportunity cost')
 @click.option('--reason', help='Reason for the change')
 @click.option('--status', type=click.Choice(['open', 'closed', 'realized', 'written_off']), help='Update status')
 @click.option('--realized-value', type=float, help='Actual realized value (when closing)')
+@click.option('--realized-currency', help='Currency of realized value (if different)')
+@click.option('--missed-cash-out-value', type=float, help='Value lost due to no cash-out option')
+@click.option('--why-stuck', help='Why you couldn\'t cash out (free-form)')
+@click.option('--optimal-cash-out-time', help='When cash-out would have been optimal')
+@click.option('--odds', type=float, help='Update odds')
+@click.option('--my-probability', type=click.FloatRange(0.0, 1.0), help='Update your probability')
+@click.option('--market-probability', type=click.FloatRange(0.0, 1.0), help='Update market probability')
+@click.option('--what-i-see', help='Update what you see')
+@click.option('--why-i-trust-this', help='Update why you trust this')
 @click.argument('notes', nargs=-1)
 def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[float],
                 opportunity_cost: Optional[float], opportunity_cost_real: Optional[float],
-                reason: Optional[str], status: Optional[str], realized_value: Optional[float], notes: tuple):
+                reason: Optional[str], status: Optional[str], realized_value: Optional[float],
+                realized_currency: Optional[str], missed_cash_out_value: Optional[float],
+                why_stuck: Optional[str], optimal_cash_out_time: Optional[str],
+                odds: Optional[float], my_probability: Optional[float], market_probability: Optional[float],
+                what_i_see: Optional[str], why_i_trust_this: Optional[str], notes: tuple):
     """Update a risk entry with new reward/value, opportunity cost, or status
     
     Examples:
@@ -350,6 +536,8 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
     # Update realized value
     if realized_value is not None:
         risk_data['realized_value'] = realized_value
+        if realized_currency:
+            risk_data['realized_value_currency'] = realized_currency
         if 'reward_history' not in risk_data:
             risk_data['reward_history'] = []
         risk_data['reward_history'].append({
@@ -359,9 +547,54 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
             'reason': 'realized'
         })
         cost = risk_data.get('entry_cost', 0)
+        currency = risk_data.get('currency', 'USD')
         pnl = realized_value - cost
         roi = (pnl / cost) * 100 if cost > 0 else 0
-        click.echo(f"✓ Realized value: ${realized_value:.2f} (PnL: ${pnl:+.2f}, ROI: {roi:+.1f}%)")
+        click.echo(f"✓ Realized value: {format_cost(realized_value, currency)} (PnL: {format_cost(pnl, currency)}, ROI: {roi:+.1f}%)")
+    
+    # Update cash-out related fields
+    if missed_cash_out_value is not None:
+        risk_data['missed_cash_out_value'] = missed_cash_out_value
+        click.echo(f"✓ Missed cash-out value: {format_cost(missed_cash_out_value, risk_data.get('currency', 'USD'))}")
+    
+    if why_stuck is not None:
+        risk_data['why_stuck'] = why_stuck
+        click.echo(f"✓ Why stuck: {why_stuck}")
+    
+    if optimal_cash_out_time is not None:
+        risk_data['optimal_cash_out_time'] = optimal_cash_out_time
+        click.echo(f"✓ Optimal cash-out time: {optimal_cash_out_time}")
+    
+    # Update odds and probabilities
+    if odds is not None:
+        risk_data['odds_or_price'] = odds
+        click.echo(f"✓ Updated odds: {odds}")
+    
+    if my_probability is not None:
+        risk_data['my_probability'] = my_probability
+        # Recalculate edge if market probability exists
+        if risk_data.get('market_probability') is not None:
+            risk_data['edge_pct'] = (my_probability - risk_data['market_probability']) * 100
+        click.echo(f"✓ Updated your probability: {my_probability*100:.0f}%")
+    
+    if market_probability is not None:
+        risk_data['market_probability'] = market_probability
+        # Recalculate edge if my probability exists
+        if risk_data.get('my_probability') is not None:
+            risk_data['edge_pct'] = (risk_data['my_probability'] - market_probability) * 100
+        click.echo(f"✓ Updated market probability: {market_probability*100:.0f}%")
+    
+    if risk_data.get('edge_pct') is not None:
+        click.echo(f"  Edge: {risk_data['edge_pct']:+.1f}%")
+    
+    # Update intuition fields
+    if what_i_see is not None:
+        risk_data['what_i_see'] = what_i_see
+        click.echo(f"✓ Updated what you see: {what_i_see}")
+    
+    if why_i_trust_this is not None:
+        risk_data['why_i_trust_this'] = why_i_trust_this
+        click.echo(f"✓ Updated why you trust this: {why_i_trust_this}")
     
     # Update entry metadata in database
     storage.update_entry_metadata(entry_id, risk_data)
@@ -515,8 +748,16 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
 @click.option('--type', '-t', help='Filter by entry type')
 @click.option('--tags', help='Filter by tags (comma-separated)')
 def today(type: str, tags: str):
-    """Show all entries for today"""
+    """Show all entries for today (shortcut: nc t)"""
     storage = get_storage()
+    
+    # Show review prompts (optional)
+    prompts = get_review_prompts(storage)
+    if prompts:
+        click.echo("\n💡 Quick review suggestions:")
+        for prompt in prompts[:3]:  # Show top 3
+            click.echo(f"  - {prompt}")
+        click.echo("")
     
     start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = datetime.now()
@@ -956,7 +1197,7 @@ def show_improvement_guide(template: str):
     from ..core.models import ImprovementType
     
     template_type = ImprovementType(template)
-    template_def = get_template(template_type)
+    template_def = get_improvement_template(template_type)
     
     if not template_def:
         click.echo(f"Error: Template '{template}' not found", err=True)
@@ -1079,6 +1320,332 @@ def generate_video_script(project_name: str, output: str):
         click.echo(f"✓ Video script saved to {output_path}")
     else:
         click.echo(script)
+
+
+@main.command()
+@click.option('--period', type=click.Choice(['day', 'week', 'month']), default='week', help='Review period')
+def review(period: str):
+    """Review recent entries and get suggestions
+    
+    Shows what you logged, what you skipped, and suggestions for improvement.
+    """
+    storage = get_storage()
+    
+    # Get review prompts
+    prompts = get_review_prompts(storage)
+    
+    if prompts:
+        click.echo(f"\n💡 Quick review suggestions ({period}):")
+        for prompt in prompts:
+            click.echo(f"  - {prompt}")
+    else:
+        click.echo("✓ No pending reviews")
+    
+    # Show recent activity
+    if period == 'day':
+        start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == 'week':
+        start_date = get_week_start(datetime.now())
+    else:  # month
+        start_date = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    entries = storage.get_entries(start_date=start_date, limit=100)
+    risk_entries = [e for e in entries if e.entry_type == EntryType.RISK]
+    
+    if risk_entries:
+        click.echo(f"\n📊 Activity ({period}):")
+        click.echo(f"  Total risk entries: {len(risk_entries)}")
+        
+        quick_count = sum(1 for e in risk_entries if e.metadata.get('quick_mode'))
+        if quick_count > 0:
+            click.echo(f"  Quick entries: {quick_count} (add context later?)")
+        
+        open_count = sum(1 for e in risk_entries if e.metadata.get('status') == 'open')
+        if open_count > 0:
+            click.echo(f"  Open risks: {open_count} (update outcomes?)")
+
+
+@main.command()
+def adapt():
+    """Suggest system improvements based on your usage
+    
+    Analyzes what fields you use vs skip, suggests removing unused complexity
+    or adding fields you keep wanting.
+    """
+    storage = get_storage()
+    
+    suggestions = suggest_iterations(storage)
+    
+    click.echo("\n🔧 System adaptation suggestions:\n")
+    
+    if suggestions['suggestions']:
+        for suggestion in suggestions['suggestions']:
+            click.echo(f"  • {suggestion}")
+    else:
+        click.echo("  ✓ System is well-tuned to your process!")
+    
+    if suggestions['popular_fields']:
+        click.echo(f"\n✅ Fields that work well for you:")
+        for field in suggestions['popular_fields'][:5]:
+            click.echo(f"  - {field}")
+    
+    if suggestions['unused_fields']:
+        click.echo(f"\n⚠️  Fields you rarely use (consider simplifying):")
+        for field in suggestions['unused_fields'][:5]:
+            click.echo(f"  - {field}")
+
+
+@main.group()
+def examples():
+    """Show examples of how others structure entries"""
+    pass
+
+
+@examples.command('list')
+@click.option('--type', help='Filter by type (e.g., sports-bet)')
+def list_examples(type: str):
+    """List available examples"""
+    click.echo("\n📚 Available Examples:\n")
+    
+    for example_id, example in EXAMPLES.items():
+        if type and type not in example_id:
+            continue
+        
+        click.echo(f"  {example_id}:")
+        click.echo(f"    Description: {example['description']}")
+        click.echo(f"    When: {example['when']}")
+        click.echo(f"    Command: {example['command']}")
+        click.echo("")
+
+
+@examples.command('show')
+@click.argument('example_id')
+def show_example(example_id: str):
+    """Show a specific example"""
+    example = get_example(example_id)
+    
+    if not example:
+        click.echo(f"Error: Example '{example_id}' not found", err=True)
+        click.echo("Use 'nc examples list' to see available examples", err=True)
+        return
+    
+    click.echo(f"\n📖 Example: {example_id}\n")
+    click.echo(f"Description: {example['description']}")
+    click.echo(f"When to use: {example['when']}")
+    click.echo(f"\nCommand:")
+    click.echo(f"  {example['command']}")
+    click.echo(f"\nFields used: {', '.join(example.get('fields_used', []))}")
+
+
+@main.group()
+def template():
+    """Show templates for common patterns"""
+    pass
+
+
+@template.command('list')
+def list_templates():
+    """List available templates"""
+    click.echo("\n📋 Available Templates:\n")
+    
+    for template_id, template_data in TEMPLATES.items():
+        click.echo(f"  {template_id}: {template_data['name']}")
+        click.echo(f"    {template_data['description']}")
+        click.echo(f"    Fields: {', '.join(template_data['fields'])}")
+        click.echo("")
+
+
+@template.command('show')
+@click.argument('template_id')
+def show_template(template_id: str):
+    """Show a specific template"""
+    template_data = get_template(template_id)
+    
+    if not template_data:
+        click.echo(f"Error: Template '{template_id}' not found", err=True)
+        click.echo("Use 'nc template list' to see available templates", err=True)
+        return
+    
+    click.echo(f"\n📋 Template: {template_data['name']}\n")
+    click.echo(f"Description: {template_data['description']}")
+    click.echo(f"\nFields: {', '.join(template_data['fields'])}")
+    click.echo(f"\nCommand template:")
+    click.echo(f"  {template_data['command_template']}")
+
+
+@main.command('contrast')
+@click.argument('entry_id', type=int)
+def show_contrast(entry_id: int):
+    """Show how others structure similar entries (contrast view)"""
+    storage = get_storage()
+    
+    contrast = get_contrast(storage, entry_id)
+    
+    if 'error' in contrast:
+        click.echo(f"Error: {contrast['error']}", err=True)
+        return
+    
+    click.echo(f"\n🔍 Contrast View for Entry #{entry_id}\n")
+    
+    click.echo("Your structure:")
+    click.echo(f"  Fields used: {len(contrast['your_structure']['fields_used'])}")
+    if contrast['your_structure']['quick_mode']:
+        click.echo("  Mode: Quick capture")
+    else:
+        click.echo("  Mode: Full context")
+    
+    if contrast['similar_examples']:
+        click.echo(f"\nSimilar examples ({len(contrast['similar_examples'])}):")
+        for i, example in enumerate(contrast['similar_examples'], 1):
+            click.echo(f"\n  {i}. {example['description']}")
+            click.echo(f"     When: {example['when']}")
+            click.echo(f"     Command: {example['command']}")
+
+
+# Keyboard shortcuts - these will be handled by Click's command aliasing
+# For now, users can use the full commands: nc today, nc recent
+
+
+@main.group()
+def content():
+    """Generate content from entries for distribution"""
+    pass
+
+
+@content.command('generate')
+@click.option('--from-risk', type=int, help='Risk entry ID to generate from')
+@click.option('--from-week', is_flag=True, help='Generate from this week\'s entries')
+@click.option('--format', type=click.Choice(['twitter', 'linkedin', 'blog']), required=True, help='Output format')
+@click.option('--brevity', type=click.Choice(['high', 'medium', 'low']), default='medium', help='Brevity level (twitter only)')
+@click.option('--filter', help='Include only lines with these keywords (comma-separated)')
+@click.option('--exclude', help='Exclude lines with these keywords (comma-separated)')
+@click.option('--output', '-o', help='Output file path (default: stdout)')
+def generate_content(from_risk: Optional[int], from_week: bool, format: str, 
+                     brevity: str, filter: Optional[str], exclude: Optional[str], output: Optional[str]):
+    """Generate content from entries
+    
+    Examples:
+        nc content generate --from-risk 1 --format twitter --brevity high
+        nc content generate --from-risk 1 --format linkedin --output post.txt
+        nc content generate --from-week --format blog
+    """
+    storage = get_storage()
+    generator = ContentGenerator(storage)
+    
+    if from_risk:
+        entries = storage.get_entries(limit=10000)
+        entry = next((e for e in entries if e.id == from_risk), None)
+        
+        if not entry or entry.entry_type != EntryType.RISK:
+            click.echo(f"Error: Risk entry #{from_risk} not found", err=True)
+            return
+        
+        if format == 'twitter':
+            content = generator.generate_twitter(entry, brevity)
+        elif format == 'linkedin':
+            content = generator.generate_linkedin(entry)
+        else:  # blog
+            content = generator.generate_blog(entry)
+    
+    elif from_week:
+        # Generate from week's entries
+        start_date = get_week_start(datetime.now())
+        entries = storage.get_entries(start_date=start_date, entry_type=EntryType.RISK)
+        
+        if not entries:
+            click.echo("No risk entries found for this week", err=True)
+            return
+        
+        # For now, generate from most recent entry
+        # Can be enhanced to aggregate multiple entries
+        entry = entries[0]
+        if format == 'twitter':
+            content = generator.generate_twitter(entry, brevity)
+        elif format == 'linkedin':
+            content = generator.generate_linkedin(entry)
+        else:  # blog
+            content = generator.generate_blog(entry)
+    else:
+        click.echo("Error: Must specify --from-risk or --from-week", err=True)
+        return
+    
+    # Apply filters
+    if filter or exclude:
+        include_list = [f.strip() for f in filter.split(',')] if filter else None
+        exclude_list = [e.strip() for e in exclude.split(',')] if exclude else None
+        content = generator.filter_content(content, include_list, exclude_list)
+    
+    # Output
+    if output:
+        output_path = Path(output)
+        output_path.write_text(content, encoding='utf-8')
+        click.echo(f"✓ Content saved to {output}")
+    else:
+        click.echo(content)
+
+
+@content.command('publish')
+@click.option('--from-risk', type=int, required=True, help='Risk entry ID to publish')
+@click.option('--to', help='Platforms to publish to (comma-separated: twitter,linkedin,blog)')
+@click.option('--format', type=click.Choice(['twitter', 'linkedin', 'blog']), help='Format to generate (default: all)')
+@click.option('--brevity', type=click.Choice(['high', 'medium', 'low']), default='medium', help='Brevity level')
+@click.option('--dry-run', is_flag=True, help='Show what would be published without actually publishing')
+def publish_content(from_risk: int, to: Optional[str], format: Optional[str], 
+                    brevity: str, dry_run: bool):
+    """Publish content to multiple platforms (or prepare for manual posting)
+    
+    Examples:
+        nc content publish --from-risk 1 --to twitter,linkedin --dry-run
+        nc content publish --from-risk 1 --format twitter --brevity high
+    """
+    storage = get_storage()
+    generator = ContentGenerator(storage)
+    
+    # Get entry
+    entries = storage.get_entries(limit=10000)
+    entry = next((e for e in entries if e.id == from_risk), None)
+    
+    if not entry or entry.entry_type != EntryType.RISK:
+        click.echo(f"Error: Risk entry #{from_risk} not found", err=True)
+        return
+    
+    # Determine formats to generate
+    if format:
+        formats_to_generate = [format]
+    elif to:
+        formats_to_generate = [f.strip() for f in to.split(',')]
+    else:
+        formats_to_generate = ['twitter', 'linkedin', 'blog']
+    
+    click.echo(f"\n📤 Publishing content from risk entry #{from_risk}\n")
+    
+    if dry_run:
+        click.echo("🔍 DRY RUN - Content will be shown but not published\n")
+    
+    for fmt in formats_to_generate:
+        click.echo(f"\n{'='*60}")
+        click.echo(f"📱 {fmt.upper()}\n")
+        
+        if fmt == 'twitter':
+            content = generator.generate_twitter(entry, brevity)
+        elif fmt == 'linkedin':
+            content = generator.generate_linkedin(entry)
+        else:  # blog
+            content = generator.generate_blog(entry)
+        
+        click.echo(content)
+        click.echo(f"\n{'='*60}")
+        
+        if not dry_run:
+            click.echo(f"\n💡 To publish {fmt}:")
+            click.echo(f"   1. Copy the content above")
+            click.echo(f"   2. Paste into {fmt}")
+            click.echo(f"   3. Review and post")
+            click.echo("")
+            click.echo("   (Automatic publishing not yet implemented - use manual copy/paste for now)")
+    
+    if dry_run:
+        click.echo("\n✅ Dry run complete - content ready to publish")
 
 
 if __name__ == '__main__':
