@@ -113,7 +113,11 @@ class TradingPerformanceImporter(BaseImporter):
         numeric_columns = ['entry_price', 'exit_price', 'quantity', 'pnl', 'return_pct', 'fees']
         for col in numeric_columns:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                try:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                except (TypeError, ValueError):
+                    # Skip if column doesn't exist or can't be converted
+                    continue
         
         # Calculate return_pct if not present but have entry/exit prices
         if 'return_pct' not in df.columns and 'entry_price' in df.columns and 'exit_price' in df.columns:
