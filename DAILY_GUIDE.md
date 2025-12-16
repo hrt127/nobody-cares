@@ -11,11 +11,14 @@ A comprehensive guide to using this repository for tracking daily activities, bu
 3. [Entry Types & Best Practices](#entry-types--best-practices)
 4. [Project Management](#project-management)
 5. [Risk Tracking](#risk-tracking)
-6. [Alpha Brief Generation](#alpha-brief-generation)
-7. [Trading Performance Import](#trading-performance-import)
-8. [Improvement Tracking](#improvement-tracking)
-9. [Output Generation](#output-generation)
-10. [Workflow Integration](#workflow-integration)
+6. [Sports Betting - Your Edge System](#sports-betting---your-edge-system)
+7. [Alpha Brief Generation](#alpha-brief-generation)
+8. [Trading Performance Import](#trading-performance-import)
+9. [Improvement Tracking](#improvement-tracking)
+10. [Output Generation](#output-generation)
+11. [Review & Iterate](#review--iterate)
+12. [Workflow Integration](#workflow-integration)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -38,6 +41,19 @@ nc --version
 
    ```bash
    nc today
+   ```
+
+3. **Try Quick Capture** (when overwhelmed):
+
+   ```bash
+   nc q 100 "test bet"
+   ```
+
+4. **See Examples** (to stay grounded):
+
+   ```bash
+   nc examples list
+   nc template list
    ```
 
 ---
@@ -301,6 +317,306 @@ nc risks --type nft
 **How it feeds forward:**
 
 - Risk reviews → Portfolio optimization → Better risk management → Improved decision-making
+
+---
+
+## Sports Betting - Your Edge System
+
+### Quick Capture Mode (When Overwhelmed)
+
+When you're overwhelmed or just need to capture quickly:
+
+```bash
+# Ultra-quick entry - just cost and notes
+nc q 100 "houston bet"
+
+# With currency
+nc q 0.1 --currency ETH "ETH bet"
+```
+
+**What happens:**
+
+- System remembers your last used currency (smart default)
+- Entry is flagged as `quick_mode` for later enhancement
+- You can add all details later with `nc update-risk <id>`
+
+**Best Practices:**
+
+- Use quick mode when overwhelmed - don't skip logging
+- Add context later when you have time
+- System suggests what to add when you review
+
+### Multi-Currency Support
+
+Track bets in any currency - system doesn't force conversion:
+
+```bash
+# USD bet
+nc risk sports_bet --cost 100 --currency USD "USD bet"
+
+# ETH bet with gas fees
+nc risk sports_bet --cost 0.1 --currency ETH --gas-fee 0.001 --gas-currency ETH "ETH bet"
+
+# SOL bet
+nc risk sports_bet --cost 2.5 --currency SOL --gas-fee 0.01 "SOL bet"
+```
+
+**Key Points:**
+
+- Gas fees tracked separately (important early, less later)
+- Original currency preserved (no forced conversion)
+- System formats costs appropriately per currency
+- Last used currency remembered as default
+
+### Capturing Your Intuition & Edge
+
+Log your unique edge, not just numbers:
+
+```bash
+# Full context with your intuition
+nc risk sports_bet \
+  --cost 100 \
+  --odds 3.21 \
+  --my-probability 0.45 \
+  --market-probability 0.31 \
+  --gut-feeling "strong" \
+  --what-i-see "Market slow to react, similar to BTC breakout last week" \
+  --why-i-trust-this "Caught similar pattern 3/4 times in trading" \
+  --red-flags "No cash-out available, might get stuck" \
+  --related-trades 123 \
+  --pattern-match "Similar momentum shift in crypto" \
+  "Houston vs Denver - halftime value bet"
+```
+
+**Fields Explained:**
+
+- `--my-probability`: YOUR assessment (not "model", YOURS)
+- `--market-probability`: What market implies from odds
+- `--gut-feeling`: Your words (strong/weak/uncertain, or whatever you feel)
+- `--what-i-see`: What you notice that others might miss
+- `--why-i-trust-this`: Past experience, pattern match, domain knowledge
+- `--red-flags`: What makes you nervous
+- `--related-trades`: Link to similar trades (entry IDs)
+- `--pattern-match`: What this reminds you of
+
+**How it feeds forward:**
+
+- Your intuition → Track accuracy → Learn when you're right → Trust your process
+
+### Cash-Out Tracking (The Real Problem)
+
+Track when you can't cash out - this is where value gets lost:
+
+```bash
+# Log bet with cash-out availability
+nc risk sports_bet \
+  --cost 100 \
+  --odds 3.21 \
+  --cash-out-available \
+  "Bet with cash-out option"
+
+# Or when cash-out NOT available (your frustration)
+nc risk sports_bet \
+  --cost 100 \
+  --odds 3.21 \
+  --no-cash-out \
+  "Bet without cash-out - might get stuck"
+```
+
+**After outcome, update with missed value:**
+
+```bash
+# Update with missed cash-out value
+nc update-risk 1 \
+  --status closed \
+  --realized-value 0 \
+  --missed-cash-out-value 85 \
+  --why-stuck "Platform no cash-out, optimal exit was Q4 when Houston led" \
+  --optimal-cash-out-time "Q4, 2 minutes remaining"
+```
+
+**Why this matters:**
+
+- You captured the edge correctly (14% edge)
+- But couldn't realize value due to platform limitation
+- System tracks this as real opportunity cost
+- Learn: Check cash-out availability before betting
+
+### Cross-Domain Connections
+
+Connect sports betting insights to your other activities:
+
+```bash
+# Link to similar trade
+nc risk sports_bet \
+  --cost 100 \
+  --odds 3.21 \
+  --related-trades 123 \
+  --pattern-match "Similar to BTC breakout last week" \
+  --domain-knowledge "Applied momentum pattern from trading" \
+  "Cross-domain insight"
+```
+
+**How it works:**
+
+- `--related-trades`: Comma-separated entry IDs of similar trades
+- `--related-alpha`: Link to alpha signals
+- `--related-code`: Link to code projects
+- `--pattern-match`: Free-form description of similarity
+- `--domain-knowledge`: What you're applying from other domains
+
+**Benefits:**
+
+- See patterns across trading, sports, code
+- Apply insights from one domain to another
+- Build on what works
+
+### Examples & Templates
+
+See what others do to stay grounded:
+
+```bash
+# List available examples
+nc examples list
+
+# Show specific example
+nc examples show sports-bet-intuition
+
+# List templates
+nc template list
+
+# Show template
+nc template show value-bet
+
+# See how others structure similar bets
+nc contrast <your_risk_id>
+```
+
+**Available Examples:**
+
+- `sports-bet-quick`: Quick capture when overwhelmed
+- `sports-bet-full`: Full context when you have time
+- `sports-bet-multi-currency`: Crypto bets with gas fees
+- `sports-bet-intuition`: Capturing your intuition
+- `sports-bet-connected`: Cross-domain connections
+
+**Available Templates:**
+
+- `value-bet`: Value betting with edge calculation
+- `quick-capture`: Ultra-fast entry
+- `multi-currency`: Crypto bets
+- `intuition-capture`: Gut feeling and reasoning
+
+### Content Generation & Distribution
+
+Generate content from your entries - one source, many outputs:
+
+```bash
+# Generate Twitter thread
+nc content generate --from-risk 1 --format twitter --brevity high
+
+# Generate LinkedIn post
+nc content generate --from-risk 1 --format linkedin
+
+# Generate blog post
+nc content generate --from-risk 1 --format blog
+
+# Generate for multiple platforms
+nc content publish --from-risk 1 --to twitter,linkedin --dry-run
+```
+
+**Brevity Levels:**
+
+- `high`: Ultra-concise, key points only
+- `medium`: Balanced (default)
+- `low`: More detail
+
+**Content Includes:**
+
+- The bet setup (amount, odds, your probability)
+- What you saw (your edge)
+- Outcome and lessons learned
+- Hard-won insights (tasteful, educational)
+
+**Distribution:**
+
+- Generate once, copy/paste to multiple platforms
+- Filter what to share (exclude personal/internal)
+- Dry-run mode to preview before publishing
+
+### Review & Iterate (Not Daily)
+
+Adapt the system to YOUR process:
+
+```bash
+# Weekly review
+nc review --period week
+
+# System adaptation suggestions
+nc adapt
+```
+
+**What you get:**
+
+- Review prompts (unresolved risks, missing context)
+- Usage analytics (what you use vs skip)
+- Suggestions: "You never use --gut-feeling, remove it?"
+- Or: "You always add --what-i-see, make it easier?"
+
+**Key Point:**
+
+- Not daily habits - frequent review cycles
+- System adapts to YOU, not generic best practices
+- Remove unused complexity, add what you need
+
+### Complete Sports Betting Workflow
+
+**1. Quick Capture (When Overwhelmed)**
+
+```bash
+nc q 100 "houston bet"
+```
+
+**2. Add Context Later (When You Have Time)**
+
+```bash
+nc update-risk 1 \
+  --odds 3.21 \
+  --my-probability 0.45 \
+  --market-probability 0.31 \
+  --what-i-see "Market slow to react" \
+  --why-i-trust-this "Similar pattern in trading"
+```
+
+**3. Track Live (During Game)**
+
+```bash
+nc update-risk 1 --odds 1.97 --market-probability 0.51
+```
+
+**4. Update Outcome (After Game)**
+
+```bash
+nc update-risk 1 \
+  --status closed \
+  --realized-value 0 \
+  --missed-cash-out-value 85 \
+  --why-stuck "No cash-out available"
+```
+
+**5. Learn from It**
+
+```bash
+nc content generate --from-risk 1 --format twitter
+# Extract lessons, share insights
+```
+
+**6. Review & Adapt**
+
+```bash
+nc review --period week
+nc adapt
+```
 
 ---
 
@@ -676,6 +992,117 @@ nc generate video-script "Trading Bot v2" --output video_script.txt
 
 - Outputs → Social media presence → Audience building → Monetization opportunities → More projects
 
+### Content Generation (From Risk Entries)
+
+Generate content from your risk entries - one source, many outputs:
+
+```bash
+# Generate Twitter thread from risk entry
+nc content generate --from-risk 1 --format twitter --brevity high
+
+# Generate LinkedIn post
+nc content generate --from-risk 1 --format linkedin
+
+# Generate blog post
+nc content generate --from-risk 1 --format blog
+
+# Generate for multiple platforms
+nc content publish --from-risk 1 --to twitter,linkedin --dry-run
+```
+
+**Brevity Levels:**
+
+- `high`: Ultra-concise, key points only
+- `medium`: Balanced (default)
+- `low`: More detail
+
+**Content Includes:**
+
+- The bet setup (amount, odds, your probability)
+- What you saw (your edge)
+- Outcome and lessons learned
+- Hard-won insights (tasteful, educational)
+
+**Best Practices:**
+
+- Generate after outcome is known
+- Review and customize before publishing
+- Use dry-run to preview
+- Filter personal/internal content if needed
+
+---
+
+## Review & Iterate
+
+### Not Daily Habits - Frequent Adaptation
+
+The system adapts to YOUR process, not generic best practices.
+
+### Review Cycles
+
+```bash
+# Weekly review
+nc review --period week
+
+# Monthly review
+nc review --period month
+```
+
+**What you get:**
+
+- Review prompts (unresolved risks, missing context)
+- Activity summary (what you logged vs skipped)
+- Suggestions for follow-up
+
+### System Adaptation
+
+```bash
+# Get suggestions for improving the system
+nc adapt
+```
+
+**What you get:**
+
+- Fields you use most (keep these)
+- Fields you rarely use (consider simplifying)
+- Suggestions: "You never use --gut-feeling, remove it?"
+- Or: "You always add --what-i-see, make it easier?"
+
+**Key Points:**
+
+- Not daily - frequent review cycles
+- System learns from YOUR usage
+- Remove unused complexity
+- Add what you actually need
+
+### Examples & Templates
+
+See what others do to stay grounded:
+
+```bash
+# List examples
+nc examples list
+
+# Show specific example
+nc examples show sports-bet-intuition
+
+# List templates
+nc template list
+
+# Show template
+nc template show value-bet
+
+# See how others structure similar bets
+nc contrast <your_risk_id>
+```
+
+**Why this helps:**
+
+- Stay grounded (not too far out)
+- See practical patterns
+- Learn from others' structure
+- Adapt to what works
+
 ---
 
 ## Workflow Integration
@@ -877,6 +1304,48 @@ pip install reportlab  # For PDF generation
 - Check filters: `nc risks --status open`
 - Verify project names: `nc project list`
 
+### Common Errors & Solutions
+
+**"Cost must be greater than 0"**
+
+- Use positive numbers: `nc q 100 "bet"` not `nc q -100 "bet"`
+
+**"Probability must be between 0 and 1"**
+
+- Use decimal format: `--my-probability 0.45` not `--my-probability 45`
+- Hint: 0.45 = 45%, 0.31 = 31%
+
+**"Invalid entry ID"**
+
+- Check ID exists: `nc recent` or `nc risks`
+- IDs are numbers, not names
+
+**Currency formatting issues**
+
+- System handles any currency string: `USD`, `ETH`, `BTC`, `SOL`, etc.
+- Gas fees tracked separately if different currency
+
+**Quick mode entries missing context**
+
+- This is expected - add details later: `nc update-risk <id> --odds <odds>`
+- System suggests what to add when you review
+
+### Error Handling
+
+The system includes fallbacks for common issues:
+
+- Invalid probabilities default to None (won't break)
+- Missing metadata handled gracefully
+- Storage errors show helpful messages
+- Review prompts won't break if database issues occur
+
+If something breaks:
+
+1. Check error message - it usually has a hint
+2. Try the command again (transient errors)
+3. Check database: `nc today` (recreates if needed)
+4. Review recent changes: `nc recent`
+
 ---
 
 ## Advanced Usage
@@ -913,12 +1382,23 @@ nc today --type alpha
 
 This system is designed for **incremental value over time**. The key is consistency:
 
-1. **Log daily** - Build the data foundation
-2. **Track risks** - Learn from decisions
-3. **Improve projects** - Add value systematically
-4. **Generate outputs** - Share and monetize
-5. **Iterate** - Build on previous work
+1. **Log daily** - Build the data foundation (or use quick capture when overwhelmed)
+2. **Track risks** - Learn from decisions, capture your intuition
+3. **Connect domains** - See patterns across trading, sports, code
+4. **Improve projects** - Add value systematically
+5. **Generate outputs** - Share and monetize (one source, many outputs)
+6. **Review & iterate** - Adapt system to YOUR process
 
 Each step feeds into the next, creating a compounding effect on your skills, portfolio, and opportunities.
 
-**Remember: Nobody cares until you show them why they should. This system helps you build the proof.**
+### Your Edge System
+
+This isn't generic - it's YOUR system:
+
+- **Captures YOUR intuition** - not just numbers
+- **Connects YOUR activities** - sports, trading, alpha, code
+- **Learns from YOUR patterns** - not generic advice
+- **Adapts to YOUR process** - remove unused, add what you need
+- **Works when overwhelmed** - quick capture, add details later
+
+**Remember: Nobody cares until you show them why they should. This system helps you build the proof - YOUR way.**

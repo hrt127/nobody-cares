@@ -79,27 +79,30 @@ def get_template(template_id: str) -> Optional[Dict]:
 
 def get_contrast(storage: Storage, entry_id: int) -> Dict:
     """Get contrast view - how others structure similar bets"""
-    # Get the entry
-    entries = storage.get_entries(limit=10000)
-    entry = next((e for e in entries if e.id == entry_id), None)
-    
-    if not entry or entry.entry_type != EntryType.RISK:
-        return {'error': 'Entry not found or not a risk entry'}
-    
-    risk_data = entry.metadata
-    risk_type = risk_data.get('risk_type', 'sports_bet')
-    
-    # Find similar examples
-    similar_examples = []
-    for example_id, example in EXAMPLES.items():
-        if risk_type in example_id or 'sports-bet' in example_id:
-            similar_examples.append(example)
-    
-    return {
-        'your_structure': {
-            'fields_used': [k for k, v in risk_data.items() if v is not None and k not in ['status', 'reward_history', 'opportunity_cost_history']],
-            'quick_mode': risk_data.get('quick_mode', False)
-        },
-        'similar_examples': similar_examples[:3],  # Top 3 similar
-        'suggestions': []
-    }
+    try:
+        # Get the entry
+        entries = storage.get_entries(limit=10000)
+        entry = next((e for e in entries if e.id == entry_id), None)
+        
+        if not entry or entry.entry_type != EntryType.RISK:
+            return {'error': 'Entry not found or not a risk entry'}
+        
+        risk_data = entry.metadata or {}
+        risk_type = risk_data.get('risk_type', 'sports_bet')
+        
+        # Find similar examples
+        similar_examples = []
+        for example_id, example in EXAMPLES.items():
+            if risk_type in example_id or 'sports-bet' in example_id:
+                similar_examples.append(example)
+        
+        return {
+            'your_structure': {
+                'fields_used': [k for k, v in risk_data.items() if v is not None and k not in ['status', 'reward_history', 'opportunity_cost_history']],
+                'quick_mode': risk_data.get('quick_mode', False)
+            },
+            'similar_examples': similar_examples[:3],  # Top 3 similar
+            'suggestions': []
+        }
+    except Exception:
+        return {'error': 'Failed to get contrast view'}

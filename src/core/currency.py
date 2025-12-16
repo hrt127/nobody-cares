@@ -7,27 +7,39 @@ from .models import EntryType
 
 def format_cost(cost: float, currency: str) -> str:
     """Format cost with currency - smart formatting based on currency type"""
-    if currency in ["USD", "USDC", "USDT"]:
-        return f"${cost:.2f} {currency}"
-    elif currency in ["ETH", "BTC"]:
-        return f"{cost:.6f} {currency}"
-    elif currency in ["SOL", "MATIC", "AVAX"]:
-        return f"{cost:.4f} {currency}"
-    else:
-        # Generic formatting for unknown currencies
-        return f"{cost} {currency}"
+    try:
+        if not currency:
+            currency = "USD"
+        
+        currency_upper = currency.upper()
+        if currency_upper in ["USD", "USDC", "USDT"]:
+            return f"${cost:.2f} {currency}"
+        elif currency_upper in ["ETH", "BTC"]:
+            return f"{cost:.6f} {currency}"
+        elif currency_upper in ["SOL", "MATIC", "AVAX"]:
+            return f"{cost:.4f} {currency}"
+        else:
+            # Generic formatting for unknown currencies
+            return f"{cost} {currency}"
+    except (ValueError, TypeError):
+        # Fallback for invalid cost/currency
+        return f"{cost} {currency or 'USD'}"
 
 
 def get_last_used_currency(storage: Storage) -> str:
     """Get last used currency (smart default)"""
-    # Get from recent risk entries
-    recent = storage.get_entries(limit=10, entry_type=EntryType.RISK)
-    if recent:
-        for entry in recent:
-            risk_data = entry.metadata
-            currency = risk_data.get('currency')
-            if currency:
-                return currency
+    try:
+        # Get from recent risk entries
+        recent = storage.get_entries(limit=10, entry_type=EntryType.RISK)
+        if recent:
+            for entry in recent:
+                risk_data = entry.metadata
+                currency = risk_data.get('currency')
+                if currency:
+                    return currency
+    except Exception:
+        # Fallback to USD if anything goes wrong
+        pass
     return 'USD'
 
 

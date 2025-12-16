@@ -10,26 +10,30 @@ def get_review_prompts(storage: Storage) -> List[str]:
     """Get review prompts based on current state"""
     prompts = []
     
-    # Get open risks
-    all_entries = storage.get_entries(entry_type=EntryType.RISK, limit=1000)
-    open_risks = [e for e in all_entries if e.metadata.get('status') == 'open']
-    
-    if open_risks:
-        prompts.append(f"{len(open_risks)} open risk(s) - update outcomes?")
-    
-    # Missing context (quick mode entries)
-    quick_entries = [e for e in open_risks if e.metadata.get('quick_mode')]
-    if quick_entries:
-        prompts.append(f"{len(quick_entries)} quick entry/ies - add context?")
-    
-    # Recent outcomes without learning review
-    recent_closed = [
-        e for e in all_entries 
-        if e.metadata.get('status') in ['closed', 'realized'] 
-        and (datetime.now() - e.timestamp).days < 7
-    ]
-    if recent_closed:
-        prompts.append(f"{len(recent_closed)} recent outcome(s) - review learnings?")
+    try:
+        # Get open risks
+        all_entries = storage.get_entries(entry_type=EntryType.RISK, limit=1000)
+        open_risks = [e for e in all_entries if e.metadata.get('status') == 'open']
+        
+        if open_risks:
+            prompts.append(f"{len(open_risks)} open risk(s) - update outcomes?")
+        
+        # Missing context (quick mode entries)
+        quick_entries = [e for e in open_risks if e.metadata.get('quick_mode')]
+        if quick_entries:
+            prompts.append(f"{len(quick_entries)} quick entry/ies - add context?")
+        
+        # Recent outcomes without learning review
+        recent_closed = [
+            e for e in all_entries 
+            if e.metadata.get('status') in ['closed', 'realized'] 
+            and (datetime.now() - e.timestamp).days < 7
+        ]
+        if recent_closed:
+            prompts.append(f"{len(recent_closed)} recent outcome(s) - review learnings?")
+    except Exception:
+        # If anything goes wrong, return empty prompts (don't break the flow)
+        pass
     
     return prompts
 
@@ -38,20 +42,24 @@ def track_field_usage(storage: Storage) -> Dict[str, int]:
     """Track which fields are actually used"""
     field_usage = {}
     
-    entries = storage.get_entries(entry_type=EntryType.RISK, limit=1000)
-    
-    # Fields to track
-    fields_to_track = [
-        'my_probability', 'market_probability', 'gut_feeling', 'trust_level',
-        'what_i_see', 'why_i_trust_this', 'red_flags', 'pattern_match',
-        'related_trades', 'related_alpha', 'related_code', 'domain_knowledge_applied',
-        'cash_out_available', 'sportsbook', 'game_id', 'bet_type',
-        'gas_fee', 'how_i_calculated', 'what_market_missing'
-    ]
-    
-    for field in fields_to_track:
-        count = sum(1 for e in entries if e.metadata.get(field) is not None)
-        field_usage[field] = count
+    try:
+        entries = storage.get_entries(entry_type=EntryType.RISK, limit=1000)
+        
+        # Fields to track
+        fields_to_track = [
+            'my_probability', 'market_probability', 'gut_feeling', 'trust_level',
+            'what_i_see', 'why_i_trust_this', 'red_flags', 'pattern_match',
+            'related_trades', 'related_alpha', 'related_code', 'domain_knowledge_applied',
+            'cash_out_available', 'sportsbook', 'game_id', 'bet_type',
+            'gas_fee', 'how_i_calculated', 'what_market_missing'
+        ]
+        
+        for field in fields_to_track:
+            count = sum(1 for e in entries if e.metadata.get(field) is not None)
+            field_usage[field] = count
+    except Exception:
+        # Return empty dict if tracking fails
+        pass
     
     return field_usage
 

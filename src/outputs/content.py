@@ -15,9 +15,15 @@ class ContentGenerator:
     
     def generate_twitter(self, entry: Entry, brevity: str = 'medium') -> str:
         """Generate Twitter thread from risk entry"""
-        risk_data = entry.metadata
-        cost = risk_data.get('entry_cost', 0)
-        currency = risk_data.get('currency', 'USD')
+        try:
+            risk_data = entry.metadata or {}
+            cost = risk_data.get('entry_cost', 0)
+            currency = risk_data.get('currency', 'USD')
+        except Exception:
+            # Fallback if metadata is malformed
+            risk_data = {}
+            cost = 0
+            currency = 'USD'
         
         tweets = []
         
@@ -50,15 +56,18 @@ class ContentGenerator:
         
         # Tweet 4: Outcome/Lesson
         outcome_tweet = f"📈 Outcome: "
-        if risk_data.get('realized_value') is not None:
-            realized = risk_data['realized_value']
-            pnl = realized - cost
-            outcome_tweet += f"{format_cost(realized, currency)} "
-            if pnl > 0:
-                outcome_tweet += f"(+{format_cost(pnl, currency)})"
+        try:
+            if risk_data.get('realized_value') is not None:
+                realized = risk_data['realized_value']
+                pnl = realized - cost
+                outcome_tweet += f"{format_cost(realized, currency)} "
+                if pnl > 0:
+                    outcome_tweet += f"(+{format_cost(pnl, currency)})"
+                else:
+                    outcome_tweet += f"({format_cost(pnl, currency)})"
             else:
-                outcome_tweet += f"({format_cost(pnl, currency)})"
-        else:
+                outcome_tweet += "Pending"
+        except (TypeError, ValueError):
             outcome_tweet += "Pending"
         
         tweets.append(outcome_tweet)
@@ -74,9 +83,14 @@ class ContentGenerator:
     
     def generate_linkedin(self, entry: Entry) -> str:
         """Generate LinkedIn post (more professional)"""
-        risk_data = entry.metadata
-        cost = risk_data.get('entry_cost', 0)
-        currency = risk_data.get('currency', 'USD')
+        try:
+            risk_data = entry.metadata or {}
+            cost = risk_data.get('entry_cost', 0)
+            currency = risk_data.get('currency', 'USD')
+        except Exception:
+            risk_data = {}
+            cost = 0
+            currency = 'USD'
         
         post = f"📊 Recent Bet Analysis\n\n"
         
@@ -98,13 +112,16 @@ class ContentGenerator:
             post += f"\nWhy I trusted this: {risk_data['why_i_trust_this']}\n"
         
         post += f"\n📈 Outcome: "
-        if risk_data.get('realized_value') is not None:
-            realized = risk_data['realized_value']
-            pnl = realized - cost
-            post += f"{format_cost(realized, currency)} "
-            if pnl != 0:
-                post += f"({format_cost(pnl, currency)})"
-        else:
+        try:
+            if risk_data.get('realized_value') is not None:
+                realized = risk_data['realized_value']
+                pnl = realized - cost
+                post += f"{format_cost(realized, currency)} "
+                if pnl != 0:
+                    post += f"({format_cost(pnl, currency)})"
+            else:
+                post += "Pending"
+        except (TypeError, ValueError):
             post += "Pending"
         
         lessons = self.extract_lessons(entry)
@@ -117,10 +134,17 @@ class ContentGenerator:
     
     def generate_blog(self, entry: Entry) -> str:
         """Generate blog post (longer form)"""
-        risk_data = entry.metadata
+        try:
+            risk_data = entry.metadata or {}
+        except Exception:
+            risk_data = {}
         
-        blog = f"# Bet Analysis: {entry.notes}\n\n"
-        blog += f"*Date: {entry.timestamp.strftime('%Y-%m-%d')}*\n\n"
+        try:
+            blog = f"# Bet Analysis: {entry.notes}\n\n"
+            blog += f"*Date: {entry.timestamp.strftime('%Y-%m-%d')}*\n\n"
+        except Exception:
+            blog = f"# Bet Analysis\n\n"
+            blog += f"*Date: {datetime.now().strftime('%Y-%m-%d')}*\n\n"
         
         blog += f"## The Setup\n\n"
         blog += f"**Amount:** {format_cost(risk_data.get('entry_cost', 0), risk_data.get('currency', 'USD'))}\n\n"
@@ -147,13 +171,17 @@ class ContentGenerator:
             blog += f"## Red Flags\n\n{risk_data['red_flags']}\n\n"
         
         blog += f"## Outcome\n\n"
-        if risk_data.get('realized_value') is not None:
-            realized = risk_data['realized_value']
-            cost = risk_data.get('entry_cost', 0)
-            pnl = realized - cost
-            blog += f"**Realized Value:** {format_cost(realized, risk_data.get('currency', 'USD'))}\n\n"
-            blog += f"**PnL:** {format_cost(pnl, risk_data.get('currency', 'USD'))}\n\n"
-        else:
+        try:
+            if risk_data.get('realized_value') is not None:
+                realized = risk_data['realized_value']
+                cost = risk_data.get('entry_cost', 0)
+                pnl = realized - cost
+                currency = risk_data.get('currency', 'USD')
+                blog += f"**Realized Value:** {format_cost(realized, currency)}\n\n"
+                blog += f"**PnL:** {format_cost(pnl, currency)}\n\n"
+            else:
+                blog += f"Pending\n\n"
+        except (TypeError, ValueError):
             blog += f"Pending\n\n"
         
         lessons = self.extract_lessons(entry)
@@ -166,7 +194,11 @@ class ContentGenerator:
     
     def extract_lessons(self, entry: Entry) -> List[str]:
         """Extract hard-won lessons from outcome"""
-        risk_data = entry.metadata
+        try:
+            risk_data = entry.metadata or {}
+        except Exception:
+            risk_data = {}
+        
         lessons = []
         
         # Cash-out lesson

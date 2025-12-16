@@ -172,6 +172,25 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
     # Validate cost
     if cost <= 0:
         click.echo("Error: Cost must be greater than 0", err=True)
+        click.echo("Hint: Use positive numbers (e.g., 100, not -100)", err=True)
+        return
+    
+    # Validate probabilities if provided
+    if my_probability is not None:
+        if not (0.0 <= my_probability <= 1.0):
+            click.echo("Error: my-probability must be between 0 and 1", err=True)
+            click.echo("Hint: Use 0.45 for 45%, not 45", err=True)
+            return
+    
+    if market_probability is not None:
+        if not (0.0 <= market_probability <= 1.0):
+            click.echo("Error: market-probability must be between 0 and 1", err=True)
+            click.echo("Hint: Use 0.31 for 31%, not 31", err=True)
+            return
+    
+    # Validate odds if provided
+    if odds is not None and odds <= 0:
+        click.echo("Error: Odds must be greater than 0", err=True)
         return
     
     # Calculate edge if both probabilities provided
@@ -188,18 +207,36 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
     if correlated:
         correlated_list = [c.strip() for c in correlated.split(',')]
     
-    # Parse related entry IDs
+    # Parse related entry IDs with validation
     related_trades_list = []
     if related_trades:
-        related_trades_list = [int(t.strip()) for t in related_trades.split(',') if t.strip().isdigit()]
+        for t in related_trades.split(','):
+            t = t.strip()
+            if t.isdigit():
+                try:
+                    related_trades_list.append(int(t))
+                except ValueError:
+                    click.echo(f"Warning: Invalid trade ID '{t}', skipping", err=True)
     
     related_alpha_list = []
     if related_alpha:
-        related_alpha_list = [int(a.strip()) for a in related_alpha.split(',') if a.strip().isdigit()]
+        for a in related_alpha.split(','):
+            a = a.strip()
+            if a.isdigit():
+                try:
+                    related_alpha_list.append(int(a))
+                except ValueError:
+                    click.echo(f"Warning: Invalid alpha ID '{a}', skipping", err=True)
     
     related_code_list = []
     if related_code:
-        related_code_list = [int(c.strip()) for c in related_code.split(',') if c.strip().isdigit()]
+        for c in related_code.split(','):
+            c = c.strip()
+            if c.isdigit():
+                try:
+                    related_code_list.append(int(c))
+                except ValueError:
+                    click.echo(f"Warning: Invalid code ID '{c}', skipping", err=True)
     
     # Create risk entry metadata
     risk_entry_data = {
@@ -295,7 +332,11 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
         metadata=risk_entry_data
     )
     
-    entry_id = storage.add_entry(entry)
+    try:
+        entry_id = storage.add_entry(entry)
+    except Exception as e:
+        click.echo(f"Error: Failed to save entry: {str(e)}", err=True)
+        return
     
     # Show comprehensive stats
     click.echo(f"✓ Logged risk entry #{entry_id}: {risk_type}")
@@ -410,9 +451,13 @@ def quick_risk(cost: float, notes: tuple, currency: Optional[str], risk_type: st
         metadata=risk_entry_data
     )
     
-    entry_id = storage.add_entry(entry)
-    click.echo(f"✓ Quick entry #{entry_id}: {format_cost(cost, currency)} - {notes_text}")
-    click.echo(f"💡 Add details later: nc update-risk {entry_id} --odds <odds> --my-probability <prob> ...")
+    try:
+        entry_id = storage.add_entry(entry)
+        click.echo(f"✓ Quick entry #{entry_id}: {format_cost(cost, currency)} - {notes_text}")
+        click.echo(f"💡 Add details later: nc update-risk {entry_id} --odds <odds> --my-probability <prob> ...")
+    except Exception as e:
+        click.echo(f"Error: Failed to create entry: {str(e)}", err=True)
+        return
 
 
 @main.command('update-risk')
@@ -451,15 +496,22 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
     storage = get_storage()
     
     # Get the entry
-    entries = storage.get_entries(limit=10000)
-    entry = next((e for e in entries if e.id == entry_id), None)
+    try:
+        entries = storage.get_entries(limit=10000)
+        entry = next((e for e in entries if e.id == entry_id), None)
+    except Exception as e:
+        click.echo(f"Error: Failed to retrieve entries: {str(e)}", err=True)
+        return
     
     if not entry or entry.entry_type != EntryType.RISK:
         click.echo(f"Error: Risk entry #{entry_id} not found", err=True)
         return
     
     notes_text = ' '.join(notes) if notes else ""
-    risk_data = entry.metadata.copy()
+    try:
+        risk_data = entry.metadata.copy() if entry.metadata else {}
+    except Exception:
+        risk_data = {}
     
     # Update reward if provided
     if reward is not None:
@@ -640,16 +692,18 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
         oc_perceived = risk_data.get('opportunity_cost_perceived')
         oc_real = risk_data.get('opportunity_cost_real')
         
-        total_at_risk += cost
-        if current_ev:
-            total_current_expected += current_ev
-        if realized:
-            total_realized += realized
-        # Use explicit None checks to handle zero values correctly
-        if oc_real is not None:
-            total_opportunity_cost += oc_real
-        elif oc_perceived is not None:
-            total_opportunity_cost += oc_perceived
+        # Only sum if same currency (simplified - could be enhanced)
+        currency = risk_data.get('currency', 'USD')
+        if currency == 'USD':  # Only sum USD for now (can be enhanced)
+            total_at_risk += cost
+            if current_ev:
+                total_current_expected += current_ev
+            if realized:
+                total_realized += realized
+            if oc_real is not None:
+                total_opportunity_cost += oc_real
+            elif oc_perceived is not None:
+                total_opportunity_cost += oc_perceived
         
         status_icon = {
             'open': '🟢',
@@ -659,7 +713,13 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
         }.get(risk_status, '⚪')
         
         click.echo(f"\n{status_icon} [{entry.id}] {risk_type.upper()} - {risk_status}")
-        click.echo(f"  Cost: ${cost:.2f} {risk_data.get('currency', 'USD')}")
+        currency = risk_data.get('currency', 'USD')
+        gas_fee = risk_data.get('gas_fee')
+        if gas_fee and risk_data.get('gas_fee_currency') == currency:
+            total_cost = cost + gas_fee
+            click.echo(f"  Cost: {format_cost(total_cost, currency)} (entry: {format_cost(cost, currency)}, gas: {format_gas_fee(gas_fee, currency)})")
+        else:
+            click.echo(f"  Cost: {format_cost(cost, currency)}")
         
         if initial_ev and current_ev:
             if current_ev != initial_ev:
@@ -677,7 +737,30 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
         if realized is not None:
             pnl = realized - cost
             roi = (pnl / cost) * 100 if cost > 0 else 0
-            click.echo(f"  Realized: ${realized:.2f} (PnL: ${pnl:+.2f}, ROI: {roi:+.1f}%)")
+            realized_currency = risk_data.get('realized_value_currency', currency)
+            click.echo(f"  Realized: {format_cost(realized, realized_currency)} (PnL: {format_cost(pnl, currency)}, ROI: {roi:+.1f}%)")
+        
+        # Show edge if available
+        if risk_data.get('edge_pct') is not None:
+            edge = risk_data['edge_pct']
+            my_prob = risk_data.get('my_probability')
+            market_prob = risk_data.get('market_probability')
+            if my_prob is not None and market_prob is not None:
+                click.echo(f"  Edge: {edge:+.1f}% (your {my_prob*100:.0f}% vs market {market_prob*100:.0f}%)")
+        
+        # Show cash-out status
+        if risk_data.get('cash_out_available') is not None:
+            cash_out_str = "Available" if risk_data['cash_out_available'] else "Not available"
+            click.echo(f"  Cash-out: {cash_out_str}")
+            if not risk_data['cash_out_available'] and risk_data.get('missed_cash_out_value'):
+                click.echo(f"  ⚠️  Missed value: {format_cost(risk_data['missed_cash_out_value'], currency)}")
+        
+        # Show intuition if available
+        if risk_data.get('what_i_see'):
+            click.echo(f"  What you saw: {risk_data['what_i_see']}")
+        
+        if risk_data.get('gut_feeling'):
+            click.echo(f"  Gut feeling: {risk_data['gut_feeling']}")
         
         if show_all:
             if oc_perceived is not None or oc_real is not None:
@@ -731,8 +814,9 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
                 if update.get('notes'):
                     click.echo(f"       Notes: {update['notes']}")
     
-    click.echo(f"\n📊 Summary:")
-    click.echo(f"  Total at risk: ${total_at_risk:.2f}")
+    click.echo(f"\n📊 Summary (USD only - multi-currency totals not calculated):")
+    if total_at_risk > 0:
+        click.echo(f"  Total at risk: ${total_at_risk:.2f}")
     if total_current_expected > 0:
         click.echo(f"  Total current expected: ${total_current_expected:.2f}")
         click.echo(f"  Total potential profit: ${total_current_expected - total_at_risk:.2f}")
@@ -742,6 +826,7 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
     if total_realized > 0:
         click.echo(f"  Total realized: ${total_realized:.2f}")
         click.echo(f"  Total realized PnL: ${total_realized - total_at_risk:.2f}")
+    click.echo(f"\n💡 Note: Multi-currency entries shown individually above. Summary only includes USD entries.")
 
 
 @main.command()
@@ -752,7 +837,10 @@ def today(type: str, tags: str):
     storage = get_storage()
     
     # Show review prompts (optional)
-    prompts = get_review_prompts(storage)
+    try:
+        prompts = get_review_prompts(storage)
+    except Exception:
+        prompts = []  # Don't break if review prompts fail
     if prompts:
         click.echo("\n💡 Quick review suggestions:")
         for prompt in prompts[:3]:  # Show top 3
@@ -1374,7 +1462,11 @@ def adapt():
     """
     storage = get_storage()
     
-    suggestions = suggest_iterations(storage)
+    try:
+        suggestions = suggest_iterations(storage)
+    except Exception as e:
+        click.echo(f"Error: Failed to get suggestions: {str(e)}", err=True)
+        return
     
     click.echo("\n🔧 System adaptation suggestions:\n")
     
@@ -1479,7 +1571,11 @@ def show_contrast(entry_id: int):
     """Show how others structure similar entries (contrast view)"""
     storage = get_storage()
     
-    contrast = get_contrast(storage, entry_id)
+    try:
+        contrast = get_contrast(storage, entry_id)
+    except Exception as e:
+        click.echo(f"Error: Failed to get contrast view: {str(e)}", err=True)
+        return
     
     if 'error' in contrast:
         click.echo(f"Error: {contrast['error']}", err=True)
@@ -1602,8 +1698,12 @@ def publish_content(from_risk: int, to: Optional[str], format: Optional[str],
     generator = ContentGenerator(storage)
     
     # Get entry
-    entries = storage.get_entries(limit=10000)
-    entry = next((e for e in entries if e.id == from_risk), None)
+    try:
+        entries = storage.get_entries(limit=10000)
+        entry = next((e for e in entries if e.id == from_risk), None)
+    except Exception as e:
+        click.echo(f"Error: Failed to retrieve entries: {str(e)}", err=True)
+        return
     
     if not entry or entry.entry_type != EntryType.RISK:
         click.echo(f"Error: Risk entry #{from_risk} not found", err=True)
