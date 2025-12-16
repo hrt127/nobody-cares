@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.ENV
+
+# Database files (contains user data)
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-shm
+data/*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+# Generated outputs (uncomment if you want to ignore generated files)
+# outputs/
+# *.pdf
+# reports/
+
+# Environment variables and secrets
+.env
+.env.local
+*.key
+*.pem
+credentials.json
+token.json
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Generated files from outputs (optional - keep if you want to track generated reports)
+# Uncomment the following if you want to ignore generated outputs:
+# *.pdf
+# *_report.pdf
+# twitter_threads/
+# linkedin_posts/
+# video_scripts/
+
+# Keep data directory structure but ignore contents
+# (comment out data/*.db lines above if you want to track db schema only)
+!data/.gitkeep
