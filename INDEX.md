@@ -251,11 +251,11 @@ CLI (main.py)
 - **`DAILY_GUIDE.md`** - Deep workflows & best practices
 - **`README.md`** - Overview & feature list
 
-### Change Documentation
+### Change Documentation (in docs/)
 
-- **`MAJOR_SHIFTS.md`** - Detailed explanation of major changes
-- **`SHIFTS_SUMMARY.md`** - Quick reference for changes
-- **`CHANGES_SUMMARY.md`** - Technical summary
+- **`docs/MAJOR_SHIFTS.md`** - Detailed explanation of major changes
+- **`docs/SHIFTS_SUMMARY.md`** - Quick reference for changes
+- **`docs/CHANGES_SUMMARY.md`** - Technical summary
 
 ### Extended Documentation
 
@@ -504,7 +504,7 @@ pytest
 - [QUICKSTART.md](QUICKSTART.md) - Getting started
 - [WHEN_TO_LOG.md](WHEN_TO_LOG.md) - Practical examples
 - [DAILY_GUIDE.md](DAILY_GUIDE.md) - Deep workflows
-- [MAJOR_SHIFTS.md](MAJOR_SHIFTS.md) - Recent changes
+- [docs/MAJOR_SHIFTS.md](docs/MAJOR_SHIFTS.md) - Recent changes
 
 ---
 

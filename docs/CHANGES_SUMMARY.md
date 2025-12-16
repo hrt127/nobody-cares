@@ -54,8 +54,8 @@
 
 ### 4. Documentation Updates
 
-- `MAJOR_SHIFTS.md` - Detailed explanation of changes
-- `SHIFTS_SUMMARY.md` - Quick reference
+- `MAJOR_SHIFTS.md` - Detailed explanation of changes (in this folder)
+- `SHIFTS_SUMMARY.md` - Quick reference (in this folder)
 - `DAILY_GUIDE.md` - Updated with new fields and pattern detection
 - `README.md` - Updated feature list
 
@@ -128,8 +128,8 @@
 4. `src/insights/__init__.py` - New insights module
 5. `DAILY_GUIDE.md` - Updated documentation
 6. `README.md` - Updated feature list
-7. `MAJOR_SHIFTS.md` - Detailed change documentation
-8. `SHIFTS_SUMMARY.md` - Quick reference
+7. `MAJOR_SHIFTS.md` - Detailed change documentation (in this folder)
+8. `SHIFTS_SUMMARY.md` - Quick reference (in this folder)
 
 ---
 

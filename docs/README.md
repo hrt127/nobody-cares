@@ -13,7 +13,7 @@
 - `DAILY_GUIDE.md` - Deep workflows
 - `README.md` - Overview
 
-**Change Documentation (in root):**
+**Change Documentation (in this folder):**
 
 - `MAJOR_SHIFTS.md` - Major changes explained
 - `SHIFTS_SUMMARY.md` - Quick reference
@@ -30,11 +30,16 @@
 
 **Additional Docs (this folder):**
 
-- Place extended documentation here
-- API reference details
-- Architecture deep dives
-- Contributing guides
-- Advanced usage examples
+- **Change Documentation:**
+  - `MAJOR_SHIFTS.md` - Detailed explanation of major changes
+  - `SHIFTS_SUMMARY.md` - Quick reference for changes
+  - `CHANGES_SUMMARY.md` - Technical summary
+- **Extended Documentation:**
+  - `ARCHITECTURE.md` - System architecture deep dive
+  - Place additional extended docs here
+  - API reference details
+  - Contributing guides
+  - Advanced usage examples
 
 ---
 

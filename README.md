@@ -145,7 +145,7 @@ See [PRIVACY_SECURITY.md](PRIVACY_SECURITY.md) for details.
 
 ## Major Shifts
 
-See [MAJOR_SHIFTS.md](MAJOR_SHIFTS.md) for details on:
+See [docs/MAJOR_SHIFTS.md](docs/MAJOR_SHIFTS.md) for details on:
 
 - Agency & Ownership tracking (binary data, not narrative)
 - Structured intuition fields (observable patterns, not feelings)
