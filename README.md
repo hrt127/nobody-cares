@@ -8,7 +8,9 @@ A modular system for tracking daily activities, building skills portfolios, anal
 
 **New to this?** See [QUICKSTART.md](QUICKSTART.md) for a 5-minute getting started guide.  
 **Not sure when to log?** See [WHEN_TO_LOG.md](WHEN_TO_LOG.md) for practical examples and a checklist.  
-**Understanding the codebase?** See [INDEX.md](INDEX.md) for repository structure and extension points.
+**Understanding the codebase?** See [INDEX.md](INDEX.md) for repository structure and extension points.  
+**Extended documentation?** See [docs/](docs/) folder for additional technical docs.  
+**Extended documentation?** See [docs/](docs/) folder for additional technical docs.
 
 **Basic commands:**
 
@@ -50,6 +52,8 @@ nc today
 ### Review & Iterate
 
 - **Pattern Detection**: Detect misalignment patterns, drift patterns, ownership correlation
+- **Learning Reviews**: Periodic reviews without prompts - must answer authoritatively (`nc learn`)
+- **Pattern Export**: Export pattern data to CSV for external analysis (`nc patterns export`)
 - **Not Daily Habits**: Frequent review cycles, adapt system to YOUR process
 - **Usage Analytics**: See what you use vs skip
 - **System Adaptation**: Remove unused complexity, add what you need

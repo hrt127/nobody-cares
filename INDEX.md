@@ -2,6 +2,10 @@
 
 **Your map to the codebase.** Know what you're looking at, how it connects, and where to extend.
 
+**Quality Reports:** See [audited/](audited/) folder for walkthrough reports, API docs, and learning logs.
+
+**Quality Reports:** See [audited/](audited/) folder for walkthrough reports, API docs, and learning logs.
+
 ---
 
 ## 📁 Directory Structure
@@ -20,7 +24,8 @@ nobody-cares/
 │   └── review/            # Review prompts & system adaptation
 ├── tests/                  # Test suite
 ├── data/                   # Database (auto-created: nobody_cares.db)
-└── docs/                   # Documentation (markdown files)
+├── docs/                   # Extended documentation (optional)
+└── audited/                # Quality reports & audits
 ```
 
 ---
@@ -251,6 +256,10 @@ CLI (main.py)
 - **`MAJOR_SHIFTS.md`** - Detailed explanation of major changes
 - **`SHIFTS_SUMMARY.md`** - Quick reference for changes
 - **`CHANGES_SUMMARY.md`** - Technical summary
+
+### Extended Documentation
+
+- **`docs/`** - Additional technical documentation (architecture, deep dives)
 
 ### This Document
 

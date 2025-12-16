@@ -133,20 +133,116 @@ class ContentGenerator:
         return post
     
     def generate_blog(self, entry: Entry) -> str:
-        """Generate blog post (longer form)"""
+        """Generate blog post (longer form, expanded structure)"""
         try:
             risk_data = entry.metadata or {}
         except Exception:
             risk_data = {}
         
         try:
-            blog = f"# Bet Analysis: {entry.notes}\n\n"
-            blog += f"*Date: {entry.timestamp.strftime('%Y-%m-%d')}*\n\n"
+            blog = f"# {entry.notes}\n\n"
+            blog += f"*Date: {entry.timestamp.strftime('%Y-%m-%d %H:%M')}*\n\n"
         except Exception:
-            blog = f"# Bet Analysis\n\n"
-            blog += f"*Date: {datetime.now().strftime('%Y-%m-%d')}*\n\n"
+            blog = f"# Risk Entry Analysis\n\n"
+            blog += f"*Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
         
+        # Executive Summary
+        blog += f"## Executive Summary\n\n"
+        cost = risk_data.get('entry_cost', 0)
+        currency = risk_data.get('currency', 'USD')
+        blog += f"This entry involved {format_cost(cost, currency)} at risk"
+        
+        if risk_data.get('risk_type'):
+            blog += f" in a {risk_data['risk_type']} scenario"
+        blog += ".\n\n"
+        
+        # The Setup
         blog += f"## The Setup\n\n"
+        
+        # Risk details
+        if cost > 0:
+            blog += f"**Amount at Risk:** {format_cost(cost, currency)}\n\n"
+        
+        if risk_data.get('odds_or_price'):
+            blog += f"**Odds/Price:** {risk_data['odds_or_price']}\n\n"
+        
+        if risk_data.get('my_probability') and risk_data.get('market_probability'):
+            my_prob = risk_data['my_probability'] * 100
+            market_prob = risk_data['market_probability'] * 100
+            edge = risk_data.get('edge_pct', 0)
+            blog += f"**Probability Assessment:**\n"
+            blog += f"- My assessment: {my_prob:.0f}%\n"
+            blog += f"- Market implied: {market_prob:.0f}%\n"
+            blog += f"- Calculated edge: {edge:+.1f}%\n\n"
+        
+        # Agency & Ownership
+        if risk_data.get('ownership'):
+            blog += f"**Ownership:** {risk_data['ownership']}\n\n"
+        
+        if risk_data.get('aligned_with_self') is not None:
+            aligned = "Aligned with non-negotiables" if risk_data['aligned_with_self'] else "Not aligned"
+            blog += f"**Alignment:** {aligned}\n\n"
+        
+        if risk_data.get('voluntary') is not None:
+            voluntary = "Voluntary decision" if risk_data['voluntary'] else "Under pressure"
+            blog += f"**Decision Type:** {voluntary}\n\n"
+        
+        # What I Saw
+        blog += f"## What I Saw\n\n"
+        
+        if risk_data.get('what_i_saw'):
+            blog += f"{risk_data['what_i_saw']}\n\n"
+        elif risk_data.get('what_i_see'):
+            blog += f"{risk_data['what_i_see']}\n\n"
+        else:
+            blog += f"*No structured observation recorded.*\n\n"
+        
+        # Why It Mattered
+        if risk_data.get('why_it_mattered'):
+            blog += f"## Why It Mattered\n\n"
+            blog += f"{risk_data['why_it_mattered']}\n\n"
+        
+        # Influence
+        if risk_data.get('voices_present'):
+            blog += f"## Influence\n\n"
+            blog += f"Voices present: {', '.join(risk_data['voices_present'])}\n\n"
+        
+        # The Outcome
+        blog += f"## The Outcome\n\n"
+        
+        try:
+            if risk_data.get('realized_value') is not None:
+                realized = risk_data['realized_value']
+                pnl = realized - cost
+                roi = (pnl / cost * 100) if cost > 0 else 0
+                blog += f"**Final Value:** {format_cost(realized, currency)}\n\n"
+                blog += f"**PnL:** {format_cost(pnl, currency)} ({roi:+.1f}% ROI)\n\n"
+            else:
+                blog += f"**Status:** {risk_data.get('status', 'open').upper()}\n\n"
+        except (TypeError, ValueError):
+            blog += f"**Status:** {risk_data.get('status', 'open').upper()}\n\n"
+        
+        # Lessons Learned
+        lessons = self.extract_lessons(entry)
+        if lessons:
+            blog += f"## Lessons Learned\n\n"
+            for lesson in lessons:
+                blog += f"- {lesson}\n\n"
+        
+        # Key Takeaways
+        blog += f"## Key Takeaways\n\n"
+        
+        if risk_data.get('edge_pct') and risk_data['edge_pct'] > 0:
+            blog += f"- Had {risk_data['edge_pct']:+.1f}% edge - captured value\n"
+        
+        if risk_data.get('missed_cash_out_value'):
+            blog += f"- Platform limitation cost {format_cost(risk_data['missed_cash_out_value'], currency)}\n"
+        
+        if risk_data.get('what_i_saw') or risk_data.get('what_i_see'):
+            blog += f"- Observation pattern: {risk_data.get('what_i_saw') or risk_data.get('what_i_see')}\n"
+        
+        blog += f"\n---\n\n"
+        blog += f"*This analysis was generated from logged risk entry data.*\n"
         blog += f"**Amount:** {format_cost(risk_data.get('entry_cost', 0), risk_data.get('currency', 'USD'))}\n\n"
         
         if risk_data.get('odds_or_price'):

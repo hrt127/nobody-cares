@@ -19,7 +19,10 @@ from ..outputs import (
 from ..outputs.content import ContentGenerator
 from ..review import get_review_prompts, suggest_iterations
 from ..examples import EXAMPLES, TEMPLATES, get_example, get_template, get_contrast
-from ..insights import detect_misalignment_patterns, detect_drift_patterns, analyze_ownership_correlation
+from ..insights import (
+    detect_misalignment_patterns, detect_drift_patterns, analyze_ownership_correlation,
+    generate_review_questions, get_review_schedule, check_review_due
+)
 
 
 # Global storage instance
@@ -1725,6 +1728,106 @@ def show_ownership_correlation(days: int):
         click.echo(f"  Avg PnL: ${stats['avg_pnl']:.2f}")
         click.echo(f"  Avg ROI: {stats['avg_roi']:.1f}%")
         click.echo("")
+
+
+@patterns.command('export')
+@click.option('--days', default=90, help='Look back N days (default: 90)')
+@click.option('--output', '-o', default='patterns_export.csv', help='Output CSV file')
+def export_patterns(days: int, output: str):
+    """Export pattern data to CSV for external analysis"""
+    import csv
+    from pathlib import Path
+    
+    storage = get_storage()
+    
+    try:
+        misalignment = detect_misalignment_patterns(storage, days)
+        drift = detect_drift_patterns(storage, days)
+        ownership = analyze_ownership_correlation(storage, days)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    output_path = Path(output)
+    
+    try:
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write misalignment data
+            writer.writerow(['Pattern Type', 'Metric', 'Value'])
+            writer.writerow(['Misalignment', 'Count', misalignment.get('misaligned_count', 0)])
+            writer.writerow(['Misalignment', 'Rate', f"{misalignment.get('misalignment_rate', 0)*100:.1f}%"])
+            
+            # Write drift data
+            writer.writerow(['Drift', 'Corrections', drift.get('corrections_count', 0)])
+            writer.writerow(['Drift', 'Longest Sequence', drift.get('longest_drift', 0)])
+            
+            # Write ownership correlation
+            for ownership_type, stats in ownership.items():
+                if 'error' not in stats:
+                    writer.writerow(['Ownership', ownership_type, stats.get('count', 0)])
+                    writer.writerow(['Ownership', f'{ownership_type}_avg_pnl', stats.get('avg_pnl', 0)])
+                    writer.writerow(['Ownership', f'{ownership_type}_avg_roi', f"{stats.get('avg_roi', 0):.1f}%"])
+        
+        click.echo(f"✓ Pattern data exported to {output_path}")
+    except Exception as e:
+        click.echo(f"Error exporting: {str(e)}", err=True)
+
+
+@main.command('learn')
+@click.option('--days', default=90, help='Look back N days (default: 90)')
+@click.option('--check', is_flag=True, help='Check if review is due')
+def learn_review(days: int, check: bool):
+    """Periodic learning review - what you've learned from logging
+    
+    NO prefilled prompts. Must answer authoritatively without resources.
+    Focus: Principles vs preferences. Self-accountability. Staying uncomfortable.
+    """
+    storage = get_storage()
+    
+    if check:
+        try:
+            status = check_review_due(storage)
+            schedule = get_review_schedule()
+            
+            click.echo("\n📅 Review Schedule:\n")
+            for stage, frequency in schedule.items():
+                click.echo(f"  {stage}: {frequency}")
+            
+            click.echo(f"\n{'✓' if status['due'] else '○'} Review Status: {status['reason']}")
+            
+            if status['due']:
+                click.echo("\n💡 Run 'nc learn' (without --check) to start your review")
+        except Exception as e:
+            click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    try:
+        questions = generate_review_questions(storage, days)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    if not questions:
+        click.echo("No review questions available. Start logging to build review data.")
+        return
+    
+    click.echo("\n🎓 Learning Review - What You've Learned\n")
+    click.echo("=" * 80)
+    click.echo("\nAnswer these WITHOUT looking at your entries.")
+    click.echo("Must be authoritative. No prompts. No prefilled answers.\n")
+    click.echo("Focus: Principles (not preferences). Self-accountability.\n")
+    click.echo("=" * 80)
+    click.echo("")
+    
+    for i, question in enumerate(questions, 1):
+        click.echo(f"{i}. {question}")
+        click.echo("")
+    
+    click.echo("\n💡 Write your answers. Then check against your data.")
+    click.echo("💡 If you can't answer authoritatively, you haven't learned it yet.")
+    click.echo("💡 Stay uncomfortable - that's where living happens.")
 
 
 @main.group()
