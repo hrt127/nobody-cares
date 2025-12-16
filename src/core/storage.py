@@ -261,6 +261,15 @@ class Storage:
             ))
             return cursor.lastrowid
     
+    def update_entry_metadata(self, entry_id: int, metadata: Dict[str, Any]) -> bool:
+        """Update metadata for an entry"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE entries SET metadata = ? WHERE id = ?
+            """, (json.dumps(metadata), entry_id))
+            return cursor.rowcount > 0
+    
     def get_entries(
         self,
         entry_type: Optional[EntryType] = None,
