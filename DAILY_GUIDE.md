@@ -1,10 +1,20 @@
-# Daily Guide: Nobody Cares - Daily Improvement Hub
+# Daily Guide: Workflows & Deep Usage
 
-A comprehensive guide to using this repository for tracking daily activities, building skills portfolios, analyzing performance, and generating shareable artifacts.
+**This is NOT a quickstart.** For getting started, see [QUICKSTART.md](QUICKSTART.md).  
+**For practical "when to log" examples, see [WHEN_TO_LOG.md](WHEN_TO_LOG.md).**
+
+This guide covers detailed workflows, best practices, and how different parts of the system feed into each other.
 
 ---
 
 ## Table of Contents
+
+**Before You Start:**
+
+- [QUICKSTART.md](QUICKSTART.md) - 5-minute getting started
+- [WHEN_TO_LOG.md](WHEN_TO_LOG.md) - Practical checklist and examples
+
+**This Guide:**
 
 1. [Getting Started](#getting-started)
 2. [Daily Workflow](#daily-workflow)
@@ -24,6 +34,9 @@ A comprehensive guide to using this repository for tracking daily activities, bu
 ---
 
 ## Getting Started
+
+**Already installed?** See [QUICKSTART.md](QUICKSTART.md) for basic commands.  
+**Not sure when to log?** See [WHEN_TO_LOG.md](WHEN_TO_LOG.md) for practical examples.
 
 ### Installation
 

@@ -6,21 +6,24 @@ A modular system for tracking daily activities, building skills portfolios, anal
 
 ## Quick Start
 
+**New to this?** See [QUICKSTART.md](QUICKSTART.md) for a 5-minute getting started guide.  
+**Not sure when to log?** See [WHEN_TO_LOG.md](WHEN_TO_LOG.md) for practical examples and a checklist.  
+**Understanding the codebase?** See [INDEX.md](INDEX.md) for repository structure and extension points.
+
+**Basic commands:**
+
 ```bash
-# Install
-pip install -e .
-
-# Daily entry
-nc log trade "BTC long @ 45k, exit @ 46.2k, +2.6%"
-nc log code "Fixed authentication bug, PR #123"
-nc today  # View today's entries
-nc week   # Weekly summary
-
 # Quick capture (when overwhelmed)
 nc q 100 "houston bet"
 
 # Full context (when you have time)
-nc risk sports_bet --cost 100 --odds 3.21 --my-probability 0.45 --what-i-see "Market slow" "Value bet"
+nc risk sports_bet --cost 100 --odds 3.21 --my-probability 0.45 --what-i-saw "Market slow" "Value bet"
+
+# List your risks
+nc risks
+
+# See today's activity
+nc today
 ```
 
 ## Key Features
@@ -123,6 +126,18 @@ The system includes comprehensive error handling:
 - **Content Generation**: Handles missing data gracefully
 
 All error messages include hints (e.g., "Use 0.45 for 45%, not 45").
+
+## Privacy & Security
+
+**What you're logging:** Risk entries, observations, patterns (structured data)  
+**Where it's stored:** Local SQLite database on your machine only (`data/nobody_cares.db`)  
+**Security:** No cloud, no network, no external services - completely local  
+**Public repo, private data:** Code is public, your database is ignored by `.gitignore`  
+**Minimum specs:** Python 3.10+, ~1MB per 1000 entries, no special permissions needed
+
+See [PRIVACY_SECURITY.md](PRIVACY_SECURITY.md) for details.
+
+---
 
 ## Major Shifts
 
