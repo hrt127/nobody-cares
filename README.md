@@ -32,10 +32,41 @@ nc week   # Weekly summary
 # Run tests
 pytest
 
+# Run tests with coverage
+pytest --cov=src --cov-report=html
+
 # Format code
 black src/
 
 # Type check
 mypy src/
+```
+
+## Testing
+
+The project includes comprehensive tests covering:
+
+- **Core Models** (`tests/test_models.py`): Entry, Project, Improvement, RiskEntry models
+- **Storage Layer** (`tests/test_storage.py`): Database operations, CRUD for all entities
+- **CLI Commands** (`tests/test_cli.py`): All CLI commands including risk tracking
+- **Risk Tracking** (`tests/test_risk_tracking.py`): Risk entry logging, reward updates, opportunity cost tracking
+- **Data Importers** (`tests/test_importers.py`): CSV parsing and trading performance analysis
+- **Output Generators** (`tests/test_outputs.py`): Twitter, LinkedIn, video script generation
+- **Alpha Brief** (`tests/test_alpha.py`): Alpha brief generation and formatting
+- **Utilities** (`tests/test_utils.py`): Helper functions
+
+Run all tests:
+```bash
+pytest tests/ -v
+```
+
+Run specific test file:
+```bash
+pytest tests/test_storage.py -v
+```
+
+Run with coverage:
+```bash
+pytest --cov=src --cov-report=term-missing
 ```
 
