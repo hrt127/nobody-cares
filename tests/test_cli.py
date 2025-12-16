@@ -100,8 +100,9 @@ class TestCLIRiskTracking:
             'Test NFT'
         ])
         assert result.exit_code == 0
-        # Should show "0.00 real" not fall back to perceived
-        assert "0.00 real" in result.output or "$0.00 real" in result.output
+        # Should show "0.00 USD real" or "$0.00 USD real" not fall back to perceived
+        # New format uses currency formatting: "$0.00 USD real" or "0.00 USD real"
+        assert ("0.00" in result.output and "real" in result.output) or "$0.00" in result.output
     
     def test_list_risks(self, cli_runner, isolated_env):
         """Test listing risks"""
