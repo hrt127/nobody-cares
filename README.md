@@ -27,7 +27,11 @@ nc risk sports_bet --cost 100 --odds 3.21 --my-probability 0.45 --what-i-see "Ma
 
 ### Your Edge System
 
-- **Intuition Tracking**: Capture your gut feeling, what you see, why you trust it
+- **Agency & Ownership Tracking**: Binary data (mine/influenced/performed, aligned/not aligned, voluntary/pressure)
+- **Influence Surface**: Track who gets access to influence you (voices_present array)
+- **Motivation Integrity**: Classification (internal/external, alignment/expectation/avoidance/pruning)
+- **Structured Intuition**: Observable patterns (what_i_saw, why_it_mattered) - not feelings
+- **Pattern Detection**: Longitudinal patterns (misalignment, drift, ownership correlation)
 - **Cross-Domain Connections**: Link sports betting to trading, alpha, code
 - **Multi-Currency Support**: Track any currency (USD, ETH, BTC, SOL, etc.) with gas fee tracking
 - **Cash-Out Tracking**: Track when you can't cash out - where value gets lost
@@ -42,6 +46,7 @@ nc risk sports_bet --cost 100 --odds 3.21 --my-probability 0.45 --what-i-see "Ma
 
 ### Review & Iterate
 
+- **Pattern Detection**: Detect misalignment patterns, drift patterns, ownership correlation
 - **Not Daily Habits**: Frequent review cycles, adapt system to YOUR process
 - **Usage Analytics**: See what you use vs skip
 - **System Adaptation**: Remove unused complexity, add what you need
@@ -118,3 +123,14 @@ The system includes comprehensive error handling:
 - **Content Generation**: Handles missing data gracefully
 
 All error messages include hints (e.g., "Use 0.45 for 45%, not 45").
+
+## Major Shifts
+
+See [MAJOR_SHIFTS.md](MAJOR_SHIFTS.md) for details on:
+
+- Agency & Ownership tracking (binary data, not narrative)
+- Structured intuition fields (observable patterns, not feelings)
+- Influence surface tracking (access control, not emotion)
+- Pattern detection queries (longitudinal patterns, not mood)
+
+**Key Principle**: This is a **personal signal extraction engine**, not a feelings database.

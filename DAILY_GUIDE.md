@@ -12,13 +12,14 @@ A comprehensive guide to using this repository for tracking daily activities, bu
 4. [Project Management](#project-management)
 5. [Risk Tracking](#risk-tracking)
 6. [Sports Betting - Your Edge System](#sports-betting---your-edge-system)
-7. [Alpha Brief Generation](#alpha-brief-generation)
-8. [Trading Performance Import](#trading-performance-import)
-9. [Improvement Tracking](#improvement-tracking)
-10. [Output Generation](#output-generation)
-11. [Review & Iterate](#review--iterate)
-12. [Workflow Integration](#workflow-integration)
-13. [Troubleshooting](#troubleshooting)
+7. [Pattern Detection](#pattern-detection)
+8. [Alpha Brief Generation](#alpha-brief-generation)
+9. [Trading Performance Import](#trading-performance-import)
+10. [Improvement Tracking](#improvement-tracking)
+11. [Output Generation](#output-generation)
+12. [Review & Iterate](#review--iterate)
+13. [Workflow Integration](#workflow-integration)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -334,6 +335,17 @@ nc q 100 "houston bet"
 nc q 0.1 --currency ETH "ETH bet"
 ```
 
+**60-Second Rule:**
+> "If it can't be logged in under 60 seconds, it's not signal."
+
+This protects you from:
+
+- Overfitting
+- Emotional spirals
+- Turning this into a diary
+
+Quick capture mode enforces this - minimal fields, add details later.
+
 **What happens:**
 
 - System remembers your last used currency (smart default)
@@ -370,38 +382,54 @@ nc risk sports_bet --cost 2.5 --currency SOL --gas-fee 0.01 "SOL bet"
 
 ### Capturing Your Intuition & Edge
 
-Log your unique edge, not just numbers:
+Log your unique edge, not just numbers. Use **structured fields** for observable patterns, not feelings:
 
 ```bash
-# Full context with your intuition
+# Full context with structured intuition + agency tracking
 nc risk sports_bet \
   --cost 100 \
   --odds 3.21 \
   --my-probability 0.45 \
   --market-probability 0.31 \
-  --gut-feeling "strong" \
-  --what-i-see "Market slow to react, similar to BTC breakout last week" \
-  --why-i-trust-this "Caught similar pattern 3/4 times in trading" \
+  --what-i-saw "Vol compressed despite catalyst" \
+  --why-it-mattered "Structure didn't match narrative" \
+  --ownership mine \
+  --aligned-with-self \
+  --voluntary \
   --red-flags "No cash-out available, might get stuck" \
   --related-trades 123 \
   --pattern-match "Similar momentum shift in crypto" \
   "Houston vs Denver - halftime value bet"
 ```
 
-**Fields Explained:**
+**Structured Fields (Preferred):**
 
-- `--my-probability`: YOUR assessment (not "model", YOURS)
-- `--market-probability`: What market implies from odds
-- `--gut-feeling`: Your words (strong/weak/uncertain, or whatever you feel)
-- `--what-i-see`: What you notice that others might miss
-- `--why-i-trust-this`: Past experience, pattern match, domain knowledge
-- `--red-flags`: What makes you nervous
-- `--related-trades`: Link to similar trades (entry IDs)
-- `--pattern-match`: What this reminds you of
+- `--what-i-saw`: **Observable pattern or anomaly** (e.g., "Vol compressed despite catalyst")
+- `--why-it-mattered`: **Why this signal was relevant** (e.g., "Structure didn't match narrative")
+- `--ownership`: **mine/influenced/performed** - Binary classification, not narrative
+- `--aligned-with-self`: **True/False** - Aligned with non-negotiables?
+- `--voluntary`: **True/False** - Voluntary decision or under pressure?
+- `--voices-present`: **Comma-separated identifiers** (e.g., "scadet,euko") - Who influenced?
+- `--motivation-internal`: **True/False** - Internal alignment or external expectation?
+- `--motivation-type`: **alignment/expectation/avoidance/pruning** - Classification
+
+**Legacy Fields (Still Supported):**
+
+- `--what-i-see`: [Legacy] Free-form - use `--what-i-saw` for structured
+- `--why-i-trust-this`: [Legacy] Free-form - use `--why-it-mattered` for structured
+- `--gut-feeling`: Quick capture helper
+
+**Key Principle:**
+
+- **Binary data, not narrative** - Ownership, alignment are binary classifications
+- **Observable patterns, not feelings** - `what_i_saw` is observable, not emotional
+- **Access control, not emotion** - `voices_present` is who gets access, not how you feel
 
 **How it feeds forward:**
 
 - Your intuition → Track accuracy → Learn when you're right → Trust your process
+- Ownership tracking → Pattern detection → See what works (mine vs influenced)
+- Alignment tracking → Drift detection → See when you deviate from self
 
 ### Cash-Out Tracking (The Real Problem)
 
@@ -543,6 +571,35 @@ nc content publish --from-risk 1 --to twitter,linkedin --dry-run
 - Generate once, copy/paste to multiple platforms
 - Filter what to share (exclude personal/internal)
 - Dry-run mode to preview before publishing
+
+### Pattern Detection
+
+Detect repeated deviations and corrections:
+
+```bash
+# Detect misalignment patterns (repeated deviations from self)
+nc patterns misalignment --days 90
+
+# Detect drift patterns (repeated corrections back to self)
+nc patterns drift --days 90
+
+# Analyze ownership vs outcomes correlation
+nc patterns ownership --days 90
+```
+
+**What you get:**
+
+- Misalignment rate: How often you deviate from self
+- Ownership distribution: Which ownership types in misaligned entries
+- Voices distribution: Which voices present when misaligned
+- Corrections: When you corrected course
+- Ownership correlation: Does "mine" correlate with better outcomes?
+
+**Key Insight:**
+
+- Track **longitudinal patterns**, not mood
+- See **cost of drift** over time
+- Identify **what works** (ownership type, alignment, voices)
 
 ### Review & Iterate (Not Daily)
 
@@ -1029,6 +1086,39 @@ nc content publish --from-risk 1 --to twitter,linkedin --dry-run
 - Review and customize before publishing
 - Use dry-run to preview
 - Filter personal/internal content if needed
+
+---
+
+## Pattern Detection
+
+### Detect Repeated Deviations & Corrections
+
+Track longitudinal patterns - not mood, but **repeated deviations and corrections**:
+
+```bash
+# Detect misalignment patterns (repeated deviations from self)
+nc patterns misalignment --days 90
+
+# Detect drift patterns (repeated corrections back to self)
+nc patterns drift --days 90
+
+# Analyze ownership vs outcomes correlation
+nc patterns ownership --days 90
+```
+
+**What you get:**
+
+- **Misalignment rate**: How often you deviate from self
+- **Ownership distribution**: Which ownership types in misaligned entries
+- **Voices distribution**: Which voices present when misaligned
+- **Corrections**: When you corrected course
+- **Ownership correlation**: Does "mine" correlate with better outcomes?
+
+**Key Insight:**
+
+- Track **longitudinal patterns**, not mood
+- See **cost of drift** over time
+- Identify **what works** (ownership type, alignment, voices)
 
 ---
 

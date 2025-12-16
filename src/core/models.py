@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
@@ -16,6 +16,13 @@ class EntryType(str, Enum):
     NOTE = "note"
     OPPORTUNITY = "opportunity"
     RISK = "risk"  # Any risk-taking activity
+
+
+class OwnershipType(str, Enum):
+    """Ownership classification - binary data, not narrative"""
+    MINE = "mine"  # Decision was mine
+    INFLUENCED = "influenced"  # Decision was influenced by others
+    PERFORMED = "performed"  # Action performed under pressure/expectation
 
 
 class Entry(BaseModel):
@@ -168,10 +175,25 @@ class RiskEntry(BaseModel):
     how_i_calculated: Optional[str] = None  # How you arrived at your probability
     what_market_missing: Optional[str] = None  # What you see that market doesn't
     
-    # Intuition/Feels (free-form, your words)
-    gut_feeling: Optional[str] = None  # "strong", "weak", "uncertain", "very confident" - or your words
+    # Agency & Ownership (binary data, not narrative)
+    ownership: Optional[OwnershipType] = None  # mine/influenced/performed - binary classification
+    aligned_with_self: Optional[bool] = None  # True if aligned with non-negotiables, False if not
+    voluntary: Optional[bool] = None  # True if voluntary, False if under pressure
+    
+    # Influence Surface (access control, not emotion)
+    voices_present: List[str] = Field(default_factory=list)  # Identifiers of who influenced (e.g., ["scadet", "euko"])
+    
+    # Motivation Integrity (classification, not journaling)
+    motivation_internal: Optional[bool] = None  # True if internal alignment, False if external expectation
+    motivation_type: Optional[str] = None  # "alignment", "expectation", "avoidance", "pruning"
+    
+    # Structured Intuition (observable patterns, not feelings)
+    what_i_saw: Optional[str] = None  # Observable pattern or anomaly (e.g., "Vol compressed despite catalyst")
+    why_it_mattered: Optional[str] = None  # Why this signal was relevant (e.g., "Structure didn't match narrative")
+    
+    # Legacy intuition fields (kept for backward compatibility, but prefer structured fields above)
+    gut_feeling: Optional[str] = None  # "strong", "weak", "uncertain" - kept for quick capture
     trust_level: Optional[float] = Field(None, ge=0.0, le=1.0)  # 0.0-1.0 how much you trust this
-    what_i_see: Optional[str] = None  # What you're noticing that others might miss
     why_i_trust_this: Optional[str] = None  # Past experience, pattern match, domain knowledge
     red_flags: Optional[str] = None  # What makes you nervous
     

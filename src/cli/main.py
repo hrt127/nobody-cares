@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..core.storage import Storage
-from ..core.models import Entry, EntryType, Project
+from ..core.models import Entry, EntryType, Project, OwnershipType
 from ..core.utils import get_week_start, get_week_end
 from ..core.currency import format_cost, get_last_used_currency, format_gas_fee
 from ..alpha import AlphaBriefGenerator, BriefFormatter
@@ -19,6 +19,7 @@ from ..outputs import (
 from ..outputs.content import ContentGenerator
 from ..review import get_review_prompts, suggest_iterations
 from ..examples import EXAMPLES, TEMPLATES, get_example, get_template, get_contrast
+from ..insights import detect_misalignment_patterns, detect_drift_patterns, analyze_ownership_correlation
 
 
 # Global storage instance
@@ -110,8 +111,16 @@ def log(entry_type: str, notes: tuple, tags: str, source: str):
 @click.option('--what-market-missing', help='What you see that market doesn\'t (free-form)')
 @click.option('--gut-feeling', help='Gut feeling (strong/weak/uncertain, or your words)')
 @click.option('--trust-level', type=click.FloatRange(0.0, 1.0), help='Trust level (0.0-1.0)')
-@click.option('--what-i-see', help='What you\'re noticing that others might miss (free-form)')
-@click.option('--why-i-trust-this', help='Why you trust this - past experience, pattern match (free-form)')
+@click.option('--what-i-saw', help='Observable pattern or anomaly (structured: e.g., "Vol compressed despite catalyst")')
+@click.option('--why-it-mattered', help='Why this signal was relevant (structured: e.g., "Structure didn\'t match narrative")')
+@click.option('--ownership', type=click.Choice(['mine', 'influenced', 'performed']), help='Ownership: mine/influenced/performed (binary classification)')
+@click.option('--aligned-with-self/--not-aligned', default=None, help='Aligned with non-negotiables? (binary flag)')
+@click.option('--voluntary/--under-pressure', default=None, help='Voluntary decision or under pressure? (binary flag)')
+@click.option('--voices-present', help='Comma-separated identifiers of who influenced (e.g., "scadet,euko")')
+@click.option('--motivation-internal/--motivation-external', default=None, help='Internal alignment or external expectation?')
+@click.option('--motivation-type', type=click.Choice(['alignment', 'expectation', 'avoidance', 'pruning']), help='Motivation classification')
+@click.option('--what-i-see', help='[Legacy] What you\'re noticing (use --what-i-saw for structured)')
+@click.option('--why-i-trust-this', help='[Legacy] Why you trust this (use --why-it-mattered for structured)')
 @click.option('--red-flags', help='What makes you nervous (free-form)')
 @click.option('--related-trades', help='Comma-separated entry IDs of similar trades')
 @click.option('--related-alpha', help='Comma-separated entry IDs of related alpha signals')
@@ -141,6 +150,9 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
              odds: Optional[float], fair_value: Optional[float], confidence: Optional[float],
              my_probability: Optional[float], market_probability: Optional[float],
              how_i_calculated: Optional[str], what_market_missing: Optional[str],
+             what_i_saw: Optional[str], why_it_mattered: Optional[str],
+             ownership: Optional[str], aligned_with_self: Optional[bool], voluntary: Optional[bool],
+             voices_present: Optional[str], motivation_internal: Optional[bool], motivation_type: Optional[str],
              gut_feeling: Optional[str], trust_level: Optional[float], what_i_see: Optional[str],
              why_i_trust_this: Optional[str], red_flags: Optional[str],
              related_trades: Optional[str], related_alpha: Optional[str], related_code: Optional[str],
@@ -207,6 +219,23 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
     if correlated:
         correlated_list = [c.strip() for c in correlated.split(',')]
     
+    # Parse voices_present
+    voices_list = []
+    if voices_present:
+        voices_list = [v.strip() for v in voices_present.split(',') if v.strip()]
+    
+    # Parse ownership enum
+    ownership_enum = None
+    if ownership:
+        try:
+            ownership_enum = OwnershipType(ownership.lower())
+        except ValueError:
+            click.echo(f"Warning: Invalid ownership '{ownership}', must be mine/influenced/performed", err=True)
+    
+    # Handle legacy what_i_see field (map to what_i_saw if provided)
+    if what_i_see and not what_i_saw:
+        what_i_saw = what_i_see
+    
     # Parse related entry IDs with validation
     related_trades_list = []
     if related_trades:
@@ -254,10 +283,23 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
         'edge_pct': edge_pct,
         'how_i_calculated': how_i_calculated,
         'what_market_missing': what_market_missing,
+        # Agency & Ownership (binary data)
+        'ownership': ownership_enum.value if ownership_enum else None,
+        'aligned_with_self': aligned_with_self,
+        'voluntary': voluntary,
+        # Influence Surface (access control)
+        'voices_present': voices_list,
+        # Motivation Integrity (classification)
+        'motivation_internal': motivation_internal,
+        'motivation_type': motivation_type,
+        # Structured Intuition (observable patterns)
+        'what_i_saw': what_i_saw,
+        'why_it_mattered': why_it_mattered,
+        # Legacy intuition fields (backward compatibility)
         'gut_feeling': gut_feeling,
         'trust_level': trust_level,
-        'what_i_see': what_i_see,
-        'why_i_trust_this': why_i_trust_this,
+        'what_i_see': what_i_see,  # Legacy - prefer what_i_saw
+        'why_i_trust_this': why_i_trust_this,  # Legacy - prefer why_it_mattered
         'red_flags': red_flags,
         'related_trades': related_trades_list,
         'related_alpha': related_alpha_list,
@@ -356,10 +398,36 @@ def log_risk(risk_type: str, cost: float, currency: Optional[str], gas_fee: Opti
     
     if my_probability is not None:
         click.echo(f"  Your probability: {my_probability*100:.0f}%")
-        if what_i_see:
+        if what_i_saw:
+            click.echo(f"  What you saw: {what_i_saw}")
+        if why_it_mattered:
+            click.echo(f"  Why it mattered: {why_it_mattered}")
+        # Legacy fields
+        if what_i_see and not what_i_saw:
             click.echo(f"  What you see: {what_i_see}")
-        if why_i_trust_this:
+        if why_i_trust_this and not why_it_mattered:
             click.echo(f"  Why you trust this: {why_i_trust_this}")
+    
+    # Agency & Ownership
+    if ownership_enum:
+        click.echo(f"  Ownership: {ownership_enum.value}")
+    if aligned_with_self is not None:
+        aligned_str = "Aligned" if aligned_with_self else "Not aligned"
+        click.echo(f"  Alignment: {aligned_str}")
+    if voluntary is not None:
+        voluntary_str = "Voluntary" if voluntary else "Under pressure"
+        click.echo(f"  Decision: {voluntary_str}")
+    
+    # Influence Surface
+    if voices_list:
+        click.echo(f"  Voices present: {', '.join(voices_list)}")
+    
+    # Motivation Integrity
+    if motivation_internal is not None:
+        motivation_str = "Internal" if motivation_internal else "External"
+        click.echo(f"  Motivation: {motivation_str}")
+    if motivation_type:
+        click.echo(f"  Motivation type: {motivation_type}")
     
     if gut_feeling:
         click.echo(f"  Gut feeling: {gut_feeling}")
@@ -485,6 +553,9 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
                 realized_currency: Optional[str], missed_cash_out_value: Optional[float],
                 why_stuck: Optional[str], optimal_cash_out_time: Optional[str],
                 odds: Optional[float], my_probability: Optional[float], market_probability: Optional[float],
+                what_i_saw: Optional[str], why_it_mattered: Optional[str],
+                ownership: Optional[str], aligned_with_self: Optional[bool], voluntary: Optional[bool],
+                voices_present: Optional[str], motivation_internal: Optional[bool], motivation_type: Optional[str],
                 what_i_see: Optional[str], why_i_trust_this: Optional[str], notes: tuple):
     """Update a risk entry with new reward/value, opportunity cost, or status
     
@@ -639,14 +710,55 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
     if risk_data.get('edge_pct') is not None:
         click.echo(f"  Edge: {risk_data['edge_pct']:+.1f}%")
     
-    # Update intuition fields
+    # Update agency & ownership fields
+    if ownership is not None:
+        try:
+            ownership_enum = OwnershipType(ownership.lower())
+            risk_data['ownership'] = ownership_enum.value
+            click.echo(f"✓ Updated ownership: {ownership_enum.value}")
+        except ValueError:
+            click.echo(f"Error: Invalid ownership '{ownership}', must be mine/influenced/performed", err=True)
+    
+    if aligned_with_self is not None:
+        risk_data['aligned_with_self'] = aligned_with_self
+        click.echo(f"✓ Updated alignment: {'Aligned' if aligned_with_self else 'Not aligned'}")
+    
+    if voluntary is not None:
+        risk_data['voluntary'] = voluntary
+        click.echo(f"✓ Updated decision: {'Voluntary' if voluntary else 'Under pressure'}")
+    
+    # Update influence surface
+    if voices_present is not None:
+        voices_list = [v.strip() for v in voices_present.split(',') if v.strip()]
+        risk_data['voices_present'] = voices_list
+        click.echo(f"✓ Updated voices present: {', '.join(voices_list)}")
+    
+    # Update motivation integrity
+    if motivation_internal is not None:
+        risk_data['motivation_internal'] = motivation_internal
+        click.echo(f"✓ Updated motivation: {'Internal' if motivation_internal else 'External'}")
+    
+    if motivation_type is not None:
+        risk_data['motivation_type'] = motivation_type
+        click.echo(f"✓ Updated motivation type: {motivation_type}")
+    
+    # Update structured intuition fields
+    if what_i_saw is not None:
+        risk_data['what_i_saw'] = what_i_saw
+        click.echo(f"✓ Updated what you saw: {what_i_saw}")
+    
+    if why_it_mattered is not None:
+        risk_data['why_it_mattered'] = why_it_mattered
+        click.echo(f"✓ Updated why it mattered: {why_it_mattered}")
+    
+    # Update legacy intuition fields
     if what_i_see is not None:
         risk_data['what_i_see'] = what_i_see
-        click.echo(f"✓ Updated what you see: {what_i_see}")
+        click.echo(f"✓ Updated what you see (legacy): {what_i_see}")
     
     if why_i_trust_this is not None:
         risk_data['why_i_trust_this'] = why_i_trust_this
-        click.echo(f"✓ Updated why you trust this: {why_i_trust_this}")
+        click.echo(f"✓ Updated why you trust this (legacy): {why_i_trust_this}")
     
     # Update entry metadata in database
     storage.update_entry_metadata(entry_id, risk_data)
@@ -713,7 +825,7 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
         }.get(risk_status, '⚪')
         
         click.echo(f"\n{status_icon} [{entry.id}] {risk_type.upper()} - {risk_status}")
-        currency = risk_data.get('currency', 'USD')
+        # currency already defined above
         gas_fee = risk_data.get('gas_fee')
         if gas_fee and risk_data.get('gas_fee_currency') == currency:
             total_cost = cost + gas_fee
@@ -755,14 +867,43 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
             if not risk_data['cash_out_available'] and risk_data.get('missed_cash_out_value'):
                 click.echo(f"  ⚠️  Missed value: {format_cost(risk_data['missed_cash_out_value'], currency)}")
         
-        # Show intuition if available
-        if risk_data.get('what_i_see'):
-            click.echo(f"  What you saw: {risk_data['what_i_see']}")
+        # Show agency & ownership
+        if risk_data.get('ownership'):
+            click.echo(f"  Ownership: {risk_data['ownership']}")
+        if risk_data.get('aligned_with_self') is not None:
+            aligned_str = "Aligned" if risk_data['aligned_with_self'] else "Not aligned"
+            click.echo(f"  Alignment: {aligned_str}")
+        if risk_data.get('voluntary') is not None:
+            voluntary_str = "Voluntary" if risk_data['voluntary'] else "Under pressure"
+            click.echo(f"  Decision: {voluntary_str}")
+        
+        # Show influence surface
+        if risk_data.get('voices_present'):
+            click.echo(f"  Voices present: {', '.join(risk_data['voices_present'])}")
+        
+        # Show structured intuition
+        if risk_data.get('what_i_saw'):
+            click.echo(f"  What you saw: {risk_data['what_i_saw']}")
+        if risk_data.get('why_it_mattered'):
+            click.echo(f"  Why it mattered: {risk_data['why_it_mattered']}")
+        
+        # Show legacy intuition (if structured not available)
+        if not risk_data.get('what_i_saw') and risk_data.get('what_i_see'):
+            click.echo(f"  What you see: {risk_data['what_i_see']}")
+        if not risk_data.get('why_it_mattered') and risk_data.get('why_i_trust_this'):
+            click.echo(f"  Why you trust this: {risk_data['why_i_trust_this']}")
         
         if risk_data.get('gut_feeling'):
             click.echo(f"  Gut feeling: {risk_data['gut_feeling']}")
         
         if show_all:
+            # Show motivation integrity (not shown in default view)
+            if risk_data.get('motivation_internal') is not None:
+                motivation_str = "Internal" if risk_data['motivation_internal'] else "External"
+                click.echo(f"  Motivation: {motivation_str}")
+            if risk_data.get('motivation_type'):
+                click.echo(f"  Motivation type: {risk_data['motivation_type']}")
+            
             if oc_perceived is not None or oc_real is not None:
                 if oc_real is not None and oc_perceived is not None:
                     click.echo(f"  Opportunity cost: ${oc_perceived:.2f} perceived → ${oc_real:.2f} real")
@@ -1485,6 +1626,105 @@ def adapt():
         click.echo(f"\n⚠️  Fields you rarely use (consider simplifying):")
         for field in suggestions['unused_fields'][:5]:
             click.echo(f"  - {field}")
+
+
+@main.group()
+def patterns():
+    """Pattern detection - repeated deviations, corrections, cost of drift"""
+    pass
+
+
+@patterns.command('misalignment')
+@click.option('--days', default=90, help='Look back N days (default: 90)')
+def show_misalignment_patterns(days: int):
+    """Detect repeated deviations from self (misalignment patterns)"""
+    storage = get_storage()
+    
+    try:
+        patterns = detect_misalignment_patterns(storage, days)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    if 'error' in patterns:
+        click.echo(f"Error: {patterns['error']}", err=True)
+        return
+    
+    click.echo(f"\n🔍 Misalignment Patterns (last {days} days)\n")
+    click.echo(f"Misaligned entries: {patterns['misaligned_count']}")
+    click.echo(f"Aligned entries: {patterns['aligned_count']}")
+    click.echo(f"Misalignment rate: {patterns['misalignment_rate']*100:.1f}%")
+    
+    if patterns.get('pattern'):
+        pattern = patterns['pattern']
+        if pattern.get('ownership_distribution'):
+            click.echo(f"\nOwnership distribution (misaligned):")
+            for ownership, count in pattern['ownership_distribution'].items():
+                click.echo(f"  {ownership}: {count}")
+        
+        if pattern.get('voices_distribution'):
+            click.echo(f"\nVoices present (misaligned):")
+            for voice, count in sorted(pattern['voices_distribution'].items(), key=lambda x: x[1], reverse=True)[:5]:
+                click.echo(f"  {voice}: {count}")
+        
+        if pattern.get('motivation_distribution'):
+            click.echo(f"\nMotivation type (misaligned):")
+            for motivation, count in pattern['motivation_distribution'].items():
+                click.echo(f"  {motivation}: {count}")
+
+
+@patterns.command('drift')
+@click.option('--days', default=90, help='Look back N days (default: 90)')
+def show_drift_patterns(days: int):
+    """Detect repeated corrections back to self (drift patterns)"""
+    storage = get_storage()
+    
+    try:
+        patterns = detect_drift_patterns(storage, days)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    if 'error' in patterns:
+        click.echo(f"Error: {patterns['error']}", err=True)
+        return
+    
+    click.echo(f"\n🔄 Drift Patterns (last {days} days)\n")
+    click.echo(f"Corrections (back to self): {patterns['corrections_count']}")
+    click.echo(f"Drift sequences: {patterns['drift_sequences_count']}")
+    click.echo(f"Longest drift: {patterns['longest_drift']} entries")
+    
+    if patterns.get('corrections'):
+        click.echo(f"\nRecent corrections:")
+        for correction in patterns['corrections'][:5]:
+            click.echo(f"  Entry #{correction['id']}: {correction['date'].strftime('%Y-%m-%d')} "
+                      f"(after {correction['days_since_misalignment']} days)")
+
+
+@patterns.command('ownership')
+@click.option('--days', default=90, help='Look back N days (default: 90)')
+def show_ownership_correlation(days: int):
+    """Analyze correlation between ownership type and outcomes"""
+    storage = get_storage()
+    
+    try:
+        correlation = analyze_ownership_correlation(storage, days)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    
+    if 'error' in correlation:
+        click.echo(f"Error: {correlation['error']}", err=True)
+        return
+    
+    click.echo(f"\n📊 Ownership vs Outcomes (last {days} days)\n")
+    
+    for ownership_type, stats in correlation.items():
+        click.echo(f"{ownership_type.upper()}:")
+        click.echo(f"  Count: {stats['count']}")
+        click.echo(f"  Avg PnL: ${stats['avg_pnl']:.2f}")
+        click.echo(f"  Avg ROI: {stats['avg_roi']:.1f}%")
+        click.echo("")
 
 
 @main.group()
