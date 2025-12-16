@@ -89,6 +89,20 @@ class TestCLIRiskTracking:
         assert result.exit_code == 0
         assert "Opportunity cost" in result.output
     
+    def test_log_risk_with_zero_opportunity_cost(self, cli_runner, isolated_env):
+        """Test that explicit zero opportunity cost is respected"""
+        result = cli_runner.invoke(main, [
+            'risk', 'nft',
+            '--cost', '10',
+            '--expected-value', '15',
+            '--opportunity-cost', '5',
+            '--opportunity-cost-real', '0',  # Explicitly zero
+            'Test NFT'
+        ])
+        assert result.exit_code == 0
+        # Should show "0.00 real" not fall back to perceived
+        assert "0.00 real" in result.output or "$0.00 real" in result.output
+    
     def test_list_risks(self, cli_runner, isolated_env):
         """Test listing risks"""
         # First log a risk
@@ -185,4 +199,33 @@ class TestCLIRiskTracking:
         ])
         assert result.exit_code == 0
         assert "monetization" in result.output.lower() or "Skills Monetization" in result.output
+    
+    def test_update_risk_from_zero_reward(self, cli_runner, isolated_env):
+        """Test updating risk reward from zero (explicit zero should be treated as update, not set)"""
+        # First log a risk with zero expected value
+        result = cli_runner.invoke(main, [
+            'risk', 'nft',
+            '--cost', '10',
+            '--expected-value', '0',  # Explicitly zero
+            'Test zero reward'
+        ])
+        assert result.exit_code == 0
+        # Extract entry ID from output (format: "Logged risk entry #X")
+        import re
+        match = re.search(r'#(\d+)', result.output)
+        if not match:
+            pytest.skip("Could not extract entry ID from output")
+        entry_id = match.group(1)
+        
+        # Update from zero to non-zero
+        result = cli_runner.invoke(main, [
+            'update-risk', entry_id,
+            '--reward', '15',
+            '--reason', 'Updated from zero'
+        ])
+        # Should show "Updated reward: $0.00 → $15.00" not "Set reward"
+        assert result.exit_code == 0
+        assert "Updated reward" in result.output
+        assert "0.00" in result.output  # Should show the zero value
+        assert "15.00" in result.output
 

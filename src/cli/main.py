@@ -221,10 +221,10 @@ def log_risk(risk_type: str, cost: float, expected_value: Optional[float], timef
         edge_pct = ((odds / fair_value) - 1) * 100 if fair_value > 0 else 0
         click.echo(f"  Edge: {edge_pct:.1f}% (odds {odds} vs fair {fair_value})")
     
-    if opportunity_cost or opportunity_cost_real:
-        oc_perceived = opportunity_cost or 0
-        oc_real = opportunity_cost_real or opportunity_cost or 0
-        if opportunity_cost_real:
+    if opportunity_cost is not None or opportunity_cost_real is not None:
+        oc_perceived = opportunity_cost if opportunity_cost is not None else 0
+        oc_real = opportunity_cost_real if opportunity_cost_real is not None else (opportunity_cost if opportunity_cost is not None else 0)
+        if opportunity_cost_real is not None:
             click.echo(f"  Opportunity cost: ${oc_perceived:.2f} perceived → ${oc_real:.2f} real")
         else:
             click.echo(f"  Opportunity cost: ${oc_perceived:.2f} (perceived)")
@@ -292,7 +292,8 @@ def update_risk(entry_id: int, reward: Optional[float], confidence: Optional[flo
         }
         risk_data['reward_history'].append(reward_update)
         
-        if old_reward:
+        # Use explicit None check to handle zero values correctly
+        if old_reward is not None:
             change = reward - old_reward
             change_pct = ((reward / old_reward) - 1) * 100 if old_reward > 0 else 0
             click.echo(f"✓ Updated reward: ${old_reward:.2f} → ${reward:.2f} ({change:+.2f}, {change_pct:+.1f}%)")
@@ -411,9 +412,10 @@ def list_risks(type: str, status: str, show_history: bool, show_all: bool):
             total_current_expected += current_ev
         if realized:
             total_realized += realized
-        if oc_real:
+        # Use explicit None checks to handle zero values correctly
+        if oc_real is not None:
             total_opportunity_cost += oc_real
-        elif oc_perceived:
+        elif oc_perceived is not None:
             total_opportunity_cost += oc_perceived
         
         status_icon = {
